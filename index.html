@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#05010f" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>Oasis — Hub</title>
+    <link rel="stylesheet" href="./src/ui/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- Schermata iniziale -->
+    <div id="loading" class="overlay">
+      <div class="logo">OASIS</div>
+      <div class="subtitle">Hub centrale</div>
+      <button id="btn-start" class="btn primary">Entra</button>
+      <p class="hint">Desktop: WASD · Shift corri · Spazio salta · trascina per ruotare · E interagisci · C personaggio</p>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <div id="hud-name"></div>
+        <div id="hud-location">Hub · Piazza Centrale</div>
+      </div>
+      <div id="hud-buttons">
+        <button id="btn-avatar" class="btn small" title="Personaggio (C)">Personaggio</button>
+        <button id="btn-vr" class="btn small hidden" title="Entra in VR">VR</button>
+      </div>
+      <div id="prompt" class="hidden"></div>
+      <div id="toast" class="hidden"></div>
+      <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
+    </div>
+
+    <!-- Controlli touch (mostrati solo su dispositivi touch) -->
+    <div id="touch" class="hidden">
+      <div id="joystick"><div id="joystick-knob"></div></div>
+      <div id="touch-buttons">
+        <button id="t-interact" class="tbtn">E</button>
+        <button id="t-jump" class="tbtn big">⤒</button>
+      </div>
+    </div>
+
+    <!-- Editor personaggio -->
+    <div id="editor" class="hidden">
+      <h2>Il tuo personaggio</h2>
+      <label class="field">Nome
+        <input id="ed-name" maxlength="16" />
+      </label>
+      <div id="ed-fields"></div>
+      <div class="row">
+        <button id="ed-random" class="btn">Casuale</button>
+        <button id="ed-done" class="btn primary">Fatto</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

@@ -28,8 +28,8 @@ export class PlayerController {
     this.facing = Math.PI; // guarda verso la torre
 
     this.yaw = 0;
-    this.pitch = 0.32;
-    this.distance = 6.5;
+    this.pitch = 0.22;
+    this.distance = 5;
     this.camTarget = new THREE.Vector3();
     this.preview = false; // inquadratura frontale per l'editor
     this.xrYaw = 0;
@@ -62,6 +62,19 @@ export class PlayerController {
     }
     const rx = -fz;
     const rz = fx;
+
+    // --- seduto su una panchina: ci si alza muovendosi o saltando
+    if (this.seat) {
+      if (Math.hypot(input.moveX, input.moveY) > 0.2 || input.jump) this.standUp();
+      else {
+        this.avatar.root.position.copy(this.position);
+        this.avatar.root.rotation.y = this.facing;
+        this.avatar.animate(dt, 0, true, this.engine.clock.elapsedTime);
+        if (xr) this.updateXRRig();
+        else this.updateCamera(dt);
+        return;
+      }
+    }
 
     const speed = input.run ? RUN : WALK;
     const wantX = (fx * input.moveY + rx * input.moveX) * speed;
@@ -137,7 +150,7 @@ export class PlayerController {
   updateCamera(dt) {
     const cam = this.engine.camera;
     const p = this.position;
-    const h = 1.6 * this.avatar.config.height;
+    const h = 1.45 * this.avatar.config.height;
 
     if (this.preview) {
       // inquadratura frontale, personaggio spostato a sinistra per lasciare spazio al pannello
@@ -171,6 +184,28 @@ export class PlayerController {
     cam.position.copy(t).addScaledVector(offset, dist);
     cam.position.y = Math.max(cam.position.y, 0.3);
     cam.lookAt(t);
+  }
+
+  sit(seat) {
+    this.seat = seat;
+    this.position.copy(seat.position);
+    this.velocity.set(0, 0, 0);
+    this.facing = seat.facing;
+    this.avatar.playEmote('sit');
+  }
+
+  standUp() {
+    const s = this.seat;
+    this.seat = null;
+    this.avatar.stopEmote();
+    this.position.x += Math.sin(s.facing) * 0.55;
+    this.position.z += Math.cos(s.facing) * 0.55;
+  }
+
+  emote(id) {
+    if (this.seat || !this.grounded) return;
+    if (this.avatar.emote === id) this.avatar.stopEmote();
+    else this.avatar.playEmote(id);
   }
 
   updateXRRig() {

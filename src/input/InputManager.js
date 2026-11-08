@@ -14,7 +14,7 @@ export class InputManager {
     this.renderer = renderer;
     this.keys = new Set();
     this.state = { moveX: 0, moveY: 0, lookX: 0, lookY: 0, zoom: 0, run: false, jump: false, interact: false, snapTurn: 0 };
-    this.pending = { lookX: 0, lookY: 0, zoom: 0, jump: false, interact: false, avatar: false };
+    this.pending = { lookX: 0, lookY: 0, zoom: 0, jump: false, interact: false, avatar: false, emote: null };
     this.enabled = true;
     this.touch = { id: null, x: 0, y: 0, lookId: null, lx: 0, ly: 0 };
     this.prevXRButtons = {};
@@ -36,6 +36,8 @@ export class InputManager {
       }
       if (e.code === 'KeyE' || e.code === 'Enter') this.pending.interact = true;
       if (e.code === 'KeyC') this.pending.avatar = true;
+      const emotes = { Digit1: 'wave', Digit2: 'dance', Digit3: 'cheer', Digit4: 'floor' };
+      if (emotes[e.code]) this.pending.emote = emotes[e.code];
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
@@ -215,6 +217,8 @@ export class InputManager {
 
     Object.assign(s, { moveX: mx, moveY: my, lookX, lookY, zoom: p.zoom, run, jump, interact, snapTurn });
     s.avatar = p.avatar;
+    s.emote = this.enabled ? p.emote : null;
+    p.emote = null;
     if (!this.enabled) Object.assign(s, { moveX: 0, moveY: 0, jump: false, interact: false });
 
     p.lookX = p.lookY = p.zoom = 0;

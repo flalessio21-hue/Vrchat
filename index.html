@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#05010f" />
+    <meta name="theme-color" content="#1a1446" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" />
     <title>Oasis — Hub</title>
     <link rel="stylesheet" href="./src/ui/style.css" />
   </head>
@@ -14,27 +15,37 @@
     <!-- Schermata iniziale -->
     <div id="loading" class="overlay">
       <div class="logo">OASIS</div>
-      <div class="subtitle">Hub centrale</div>
-      <button id="btn-start" class="btn primary">Entra</button>
-      <p class="hint">Desktop: WASD · Shift corri · Spazio salta · trascina per ruotare · E interagisci · C personaggio</p>
+      <div class="subtitle">Hub sociale</div>
+      <button id="btn-start" class="btn primary">Entra nel mondo</button>
+      <p class="hint">WASD muoviti · Shift corri · Spazio salta · trascina per guardarti intorno · E interagisci · C personaggio · 1-4 emote</p>
     </div>
 
     <!-- HUD -->
     <div id="hud" class="hidden">
       <div id="hud-top">
-        <div id="hud-name"></div>
-        <div id="hud-location">Hub · Piazza Centrale</div>
+        <div class="hud-avatar-dot"></div>
+        <div>
+          <div id="hud-name"></div>
+          <div id="hud-location">Oasis · Isola Centrale</div>
+        </div>
       </div>
       <div id="hud-buttons">
+        <button id="btn-mirror" class="btn small" title="Specchio">🪞</button>
         <button id="btn-avatar" class="btn small" title="Personaggio (C)">Personaggio</button>
         <button id="btn-vr" class="btn small hidden" title="Entra in VR">VR</button>
+      </div>
+      <div id="emotes">
+        <button data-emote="wave" title="Saluta (1)">👋<span>1</span></button>
+        <button data-emote="dance" title="Balla (2)">💃<span>2</span></button>
+        <button data-emote="cheer" title="Esulta (3)">🙌<span>3</span></button>
+        <button data-emote="floor" title="Siediti (4)">🧘<span>4</span></button>
       </div>
       <div id="prompt" class="hidden"></div>
       <div id="toast" class="hidden"></div>
       <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
     </div>
 
-    <!-- Controlli touch (mostrati solo su dispositivi touch) -->
+    <!-- Controlli touch -->
     <div id="touch" class="hidden">
       <div id="joystick"><div id="joystick-knob"></div></div>
       <div id="touch-buttons">
@@ -45,14 +56,17 @@
 
     <!-- Editor personaggio -->
     <div id="editor" class="hidden">
-      <h2>Il tuo personaggio</h2>
+      <div class="ed-head">
+        <h2>Il tuo avatar</h2>
+        <button id="ed-done" class="btn primary small">Fatto</button>
+      </div>
       <label class="field">Nome
         <input id="ed-name" maxlength="16" />
       </label>
+      <div id="ed-tabs" class="tabs"></div>
       <div id="ed-fields"></div>
       <div class="row">
-        <button id="ed-random" class="btn">Casuale</button>
-        <button id="ed-done" class="btn primary">Fatto</button>
+        <button id="ed-random" class="btn">🎲 Casuale</button>
       </div>
     </div>
 

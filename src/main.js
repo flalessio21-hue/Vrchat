@@ -4,7 +4,7 @@ import { load, save } from './core/storage.js';
 import { Hub } from './world/Hub.js';
 import { makeTextSprite } from './world/textSprite.js';
 import { Avatar } from './player/Avatar.js';
-import { DEFAULT_AVATAR } from './player/avatarConfig.js';
+import { DEFAULT_AVATAR, sanitizeAvatar } from './player/avatarConfig.js';
 import { PlayerController } from './player/PlayerController.js';
 import { InputManager } from './input/InputManager.js';
 import { AvatarEditor } from './ui/AvatarEditor.js';
@@ -14,7 +14,7 @@ const canvas = document.getElementById('scene');
 const engine = new Engine(canvas);
 const hub = new Hub(engine.scene);
 
-let avatarConfig = load('avatar', DEFAULT_AVATAR);
+let avatarConfig = sanitizeAvatar(load('avatar.v2', DEFAULT_AVATAR));
 const avatar = new Avatar(avatarConfig);
 const player = new PlayerController(engine, avatar, hub);
 const input = new InputManager(canvas, engine.renderer);
@@ -24,10 +24,10 @@ hud.setName(avatarConfig.name);
 const editor = new AvatarEditor({
   getConfig: () => avatarConfig,
   onChange: (cfg) => {
-    avatarConfig = cfg;
-    avatar.apply(cfg);
-    hud.setName(cfg.name);
-    save('avatar', cfg);
+    avatarConfig = sanitizeAvatar(cfg);
+    avatar.apply(avatarConfig);
+    hud.setName(avatarConfig.name);
+    save('avatar.v2', avatarConfig);
   },
   onOpen: () => {
     player.preview = true;
@@ -40,65 +40,88 @@ const editor = new AvatarEditor({
 });
 
 /**
- * Punto di aggancio per i mondi futuri. Ogni mondo potrà essere un modulo
+ * Punto di aggancio per i mondi futuri: ogni mondo potrà essere un modulo
  * caricato on-demand (import dinamico) che sostituisce l'hub nella scena.
  */
 const WorldManager = {
   enter(world) {
     if (!world.ready) {
-      hud.toast(`<b style="color:${world.color}">${world.name}</b><br>${world.desc}<br><small>Mondo in costruzione — torna presto!</small>`, 3.5);
+      hud.toast(`<b style="color:${world.color}">${world.name}</b><br>${world.desc}<br><small>Mondo in costruzione: torna presto!</small>`, 3.5);
       return;
     }
     // TODO: const mod = await import(`./worlds/${world.id}.js`); mod.load(engine, player)
   },
 };
 
-// Etichetta 3D di interazione (visibile anche nel visore, dove l'HTML non c'è)
+function interact(it) {
+  if (it.type === 'portal') WorldManager.enter(it.data.world);
+  else if (it.type === 'sit') player.sit(it.data);
+  else if (it.type === 'mirror') {
+    hub.toggleMirror();
+    hud.toast(hub.mirrorOn ? 'Specchio acceso' : 'Specchio spento', 1.5);
+  }
+}
+
+// Etichetta 3D di interazione: visibile anche in VR, dove l'HTML non c'è
 let worldPrompt = null;
-function setWorldPrompt(portal) {
-  if (worldPrompt?.userData.id === portal?.world.id) return;
+function setWorldPrompt(it) {
+  if (worldPrompt?.userData.it === it) return;
   if (worldPrompt) {
     engine.scene.remove(worldPrompt);
     worldPrompt.material.map.dispose();
     worldPrompt = null;
   }
-  if (!portal) return;
-  const text = portal.world.ready ? `Entra: ${portal.world.name}` : `${portal.world.name} · in costruzione`;
-  worldPrompt = makeTextSprite(text, { fontSize: 40, height: 0.38, glow: portal.world.color });
-  worldPrompt.userData.id = portal.world.id;
-  worldPrompt.position.copy(portal.interactPoint).setY(2.6);
+  if (!it || !engine.isXR) return;
+  worldPrompt = makeTextSprite(it.label, { fontSize: 40, height: 0.3, glow: '#7ff0ff' });
+  worldPrompt.userData.it = it;
+  worldPrompt.position.copy(it.point).setY(player.position.y + 1.9);
   engine.scene.add(worldPrompt);
 }
 
 let gemFound = false;
+const flat = new THREE.Vector3();
 
 engine.onUpdate((dt, t) => {
   const state = input.poll();
   if (state.avatar && !engine.isXR) editor.toggle();
+  if (state.emote) player.emote(state.emote);
 
   player.update(dt, state);
-  hub.update(dt, t);
+  hub.update(dt, t, player.position, engine.isXR);
   hub.followShadow(player.position);
 
-  // portale più vicino
+  // oggetto interattivo più vicino (portali, panchine, specchio)
   let near = null;
-  for (const p of hub.portals) {
-    if (p.interactPoint.distanceTo(tmp.set(player.position.x, 0, player.position.z)) < 3.2) near = p;
+  let best = Infinity;
+  if (!player.seat) {
+    flat.set(player.position.x, 0, player.position.z);
+    for (const it of hub.interactables) {
+      const d = it.point.distanceTo(flat);
+      if (d < it.radius && d < best && Math.abs(player.position.y) < 1.5) {
+        best = d;
+        near = it;
+      }
+    }
   }
   setWorldPrompt(near);
-  const touch = input.isTouch;
-  hud.setPrompt(near ? `${touch ? 'Tocca E' : 'Premi E'} — ${near.world.name}` : null);
-  if (near && state.interact) WorldManager.enter(near.world);
+  const key = input.isTouch ? 'E' : 'E';
+  if (player.seat) hud.setPrompt(input.isTouch ? '↕' : 'WASD', 'Alzati');
+  else hud.setPrompt(near ? key : null, near ? (near.type === 'portal' ? `Entra: ${near.label}` : near.label) : '');
+  if (near && state.interact) interact(near);
 
-  if (!gemFound && hub.gem && player.position.distanceTo(hub.gem.position) < 1.6) {
+  hud.setActiveEmote(player.seat ? null : avatar.emote);
+
+  if (!gemFound && hub.gem && player.position.distanceTo(hub.gem.position) < 1.7) {
     gemFound = true;
     hub.gem.visible = false;
-    hud.toast('✦ Hai trovato il <b>Cristallo Verde</b>! ✦', 3);
+    avatar.playEmote('cheer');
+    hud.toast('✦ Hai trovato il <b style="color:#9dff9a">Cristallo Verde</b>! ✦', 3);
   }
 
   hud.drawMinimap(player.position, player.facing);
 });
-const tmp = new THREE.Vector3();
+
+hud.onEmote((id) => player.emote(id));
 
 // --- Avvio
 document.getElementById('btn-start').addEventListener('click', () => {
@@ -107,9 +130,15 @@ document.getElementById('btn-start').addEventListener('click', () => {
   if (!load('seenEditor', { v: false }).v) {
     save('seenEditor', { v: true });
     editor.open();
+  } else {
+    hud.toast('Benvenuto in <b>Oasis</b>!', 2.5);
   }
 });
 document.getElementById('btn-avatar').addEventListener('click', () => editor.toggle());
+document.getElementById('btn-mirror').addEventListener('click', () => {
+  hub.toggleMirror();
+  hud.toast(hub.mirrorOn ? 'Specchio acceso' : 'Specchio spento', 1.5);
+});
 
 Engine.isVRSupported().then((ok) => {
   if (!ok) return;

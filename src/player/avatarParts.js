@@ -1,57 +1,7 @@
 import * as THREE from 'three';
 
-/**
- * Arto affusolato con estremità arrotondate. L'origine è sull'articolazione
- * superiore e l'arto scende lungo -Y, così basta ruotare il pivot.
- */
-export function limbGeometry(rTop, rBot, len, radial = 14) {
-  const pts = [];
-  const N = 5;
-  for (let i = 0; i <= N; i++) {
-    const a = -Math.PI / 2 + (i / N) * (Math.PI / 2);
-    pts.push(new THREE.Vector2(Math.max(rBot * Math.cos(a), 1e-4), -len + rBot * Math.sin(a)));
-  }
-  for (let i = 1; i <= N; i++) {
-    const a = (i / N) * (Math.PI / 2);
-    pts.push(new THREE.Vector2(Math.max(rTop * Math.cos(a), 1e-4), rTop * Math.sin(a)));
-  }
-  return new THREE.LatheGeometry(pts, radial);
-}
-
-/** Solido di rotazione da un profilo [[raggio, y], ...] dal basso verso l'alto. */
-export function latheGeometry(profile, radial = 24, phiStart = 0, phiLength = Math.PI * 2) {
-  return new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(Math.max(r, 1e-4), y)), radial, phiStart, phiLength);
-}
-
-/**
- * Ciocca di capelli / coda: tubo lungo una curva che si assottiglia.
- * @param {THREE.Vector3[]} points punti della curva
- * @param {number} r0 raggio iniziale
- * @param {number} r1 raggio finale
- * @param {number} flat schiacciamento laterale (1 = tondo)
- */
-export function strandGeometry(points, r0, r1 = 0.002, { segments = 16, radial = 8, flat = 1, bulge = 0.25 } = {}) {
-  const curve = new THREE.CatmullRomCurve3(points);
-  const geo = new THREE.TubeGeometry(curve, segments, 1, radial, false);
-  const pos = geo.attributes.position;
-  const v = new THREE.Vector3();
-  const c = new THREE.Vector3();
-  const ring = radial + 1;
-  for (let i = 0; i < pos.count; i++) {
-    const seg = Math.floor(i / ring);
-    const t = seg / segments;
-    curve.getPointAt(t, c);
-    // forma a goccia: un po' più spessa verso il primo terzo
-    const r = THREE.MathUtils.lerp(r0, r1, t) * (1 + Math.sin(Math.min(t * 3, 1) * Math.PI) * bulge);
-    v.fromBufferAttribute(pos, i).sub(c).multiplyScalar(r);
-    v.x *= flat;
-    v.add(c);
-    pos.setXYZ(i, v.x, v.y, v.z);
-  }
-  // chiude le estremità
-  geo.computeVertexNormals();
-  return geo;
-}
+// Disegno del volto su canvas: la texture viene applicata alla superficie
+// 'Face' del modello Blender (UV 0..1 sulla parte frontale della testa).
 
 /** Disegna il viso su un canvas (occhi, sopracciglia, bocca, guance). */
 export function drawFace(ctx, S, { eyeColor, hairColor, eyes, expression }) {

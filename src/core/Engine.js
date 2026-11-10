@@ -35,7 +35,12 @@ export class Engine {
     this.rig.add(this.camera);
     this.scene.add(this.rig);
 
-    this.composer = new EffectComposer(this.renderer);
+    // render target con MSAA: il post-processing non perde l'antialiasing
+    const rt = new THREE.WebGLRenderTarget(window.innerWidth * this.pixelRatio, window.innerHeight * this.pixelRatio, {
+      type: THREE.HalfFloatType,
+      samples: isMobile ? 2 : 4,
+    });
+    this.composer = new EffectComposer(this.renderer, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     const res = new THREE.Vector2(window.innerWidth, window.innerHeight).multiplyScalar(isMobile ? 0.5 : 1);
     this.bloom = new UnrealBloomPass(res, 0.45, 0.45, 0.95);

@@ -15,7 +15,29 @@ Al momento contiene:
   pantaloni/shorts/gonna, scarpe, orecchie da gatto/volpe con coda, aureola, cuffie, occhiali, corna,
   luci neon. Salvato in locale.
 - **Animazioni ed emote**: idle, camminata, corsa, salto; saluto, ballo, esulta, seduto a terra.
-- **Grafica**: bloom, ombre, luce calda del tramonto (post-processing disattivato in VR per le prestazioni).
+- **Grafica**: modelli Blender con occlusione ambientale cotta, materiali PBR con riflessi del cielo
+  (environment map), avatar con shading toon + rim light e contorno, erba animata dal vento,
+  bloom con antialiasing MSAA, ombre morbide (post-processing disattivato in VR per le prestazioni).
+
+## Modelli 3D creati con Blender
+
+Tutta la grafica 3D è generata **da zero con script Blender** (nessun asset scaricato):
+
+| Script | Output | Contenuto |
+|---|---|---|
+| `tools/blender/avatar.py` | `public/models/avatar.glb` | avatar con scheletro (armatura), corpo modellato con Skin + Subdivision, capelli a ciocche da curve, 6 tagli, 3 sopra, 3 sotto, 6 accessori, scarpe; 9 animazioni (idle, walk, run, jump, wave, dance, cheer, sit, floor) |
+| `tools/blender/hub.py` | `public/models/hub.glb` + `hub.json` | isola, piazza a lastre, scogliera, fontana, portali ad arco, specchio, panchine, alberi, cespugli, fiori, lanterne, ringhiera, rocce del percorso, isolotti; **occlusione ambientale cotta con Cycles** nei colori dei vertici; layout di gioco (collisioni, piattaforme, sedute, portali) |
+
+Per rigenerarli serve Blender come modulo Python (`pip install bpy`, Python 3.13):
+
+```bash
+pip install bpy
+BLENDER_PY=$(which python3) tools/build-models.sh
+```
+
+Lo script esporta i glTF e li comprime con meshopt (`gltf-transform`). Nel gioco i materiali
+vengono riconosciuti per nome (es. `Hair`, `Top`, `Water`, `Portal_<id>`), così i colori
+dell'avatar si cambiano in tempo reale e gli effetti (acqua, portali, specchio) restano dinamici.
 
 ## Avvio
 
@@ -41,10 +63,14 @@ src/
   core/Engine.js          renderer, scena, loop compatibile WebXR, ingresso in VR
   core/toon.js            materiali toon, contorni, texture generate
   core/storage.js         salvataggio locale (da sostituire con account/server)
-  world/Hub.js            l'hub: geometrie, collisioni, piattaforme, portali
+  world/Hub.js            l'hub da Blender + cielo, acqua, erba, specchio, effetti
   world/worlds.js         elenco dei mondi collegati ai portali
-  player/Avatar.js        avatar anime: scheletro, vestiti, capelli, animazioni, emote
-  player/avatarParts.js   geometrie (arti, ciocche) e disegno del viso
+  player/Avatar.js        avatar da Blender: varianti, colori, fusione animazioni, emote
+  player/avatarParts.js   disegno del viso (occhi, espressioni)
+  core/assets.js          caricamento glTF compressi (meshopt)
+tools/
+  blender/                script Blender che creano avatar e hub
+  build-models.sh         rigenera e comprime i modelli
   player/avatarConfig.js  schema JSON del personaggio + palette
   player/PlayerController.js  movimento, fisica, camera 3a persona / rig VR
   input/InputManager.js   tastiera, mouse, touch, gamepad, controller Quest

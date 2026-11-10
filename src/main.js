@@ -12,7 +12,25 @@ import { HUD } from './ui/HUD.js';
 
 const canvas = document.getElementById('scene');
 const engine = new Engine(canvas);
-const hub = new Hub(engine.scene);
+
+// caricamento dei modelli Blender con barra di avanzamento
+const startBtn = document.getElementById('btn-start');
+const progress = { avatar: 0, hub: 0 };
+const showProgress = () => {
+  const pct = Math.round(((progress.avatar + progress.hub) / 2) * 100);
+  startBtn.textContent = `Caricamento… ${pct}%`;
+};
+const track = (key) => (e) => {
+  if (e.lengthComputable) progress[key] = e.loaded / e.total;
+  showProgress();
+};
+startBtn.disabled = true;
+showProgress();
+await Promise.all([Avatar.load(track('avatar')), Hub.load(track('hub'))]);
+startBtn.disabled = false;
+startBtn.textContent = 'Entra nel mondo';
+
+const hub = new Hub(engine.scene, engine.renderer);
 
 let avatarConfig = sanitizeAvatar(load('avatar.v2', DEFAULT_AVATAR));
 const avatar = new Avatar(avatarConfig);

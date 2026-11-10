@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-const WALK = 4.2;
-const RUN = 8.5;
-const JUMP = 8.2;
+const WALK = 2.6;
+const RUN = 5.8;
+const JUMP = 7.4;
 const GRAVITY = 24;
 const BODY_R = 0.35;
 const SNAP_ANGLE = THREE.MathUtils.degToRad(30);

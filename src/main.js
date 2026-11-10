@@ -26,7 +26,18 @@ const track = (key) => (e) => {
 };
 startBtn.disabled = true;
 showProgress();
-await Promise.all([Avatar.load(track('avatar')), Hub.load(track('hub'))]);
+try {
+  await Promise.all([Avatar.load(track('avatar')), Hub.load(track('hub'))]);
+} catch (err) {
+  // niente attesa infinita: mostriamo cosa è andato storto
+  console.error(err);
+  startBtn.textContent = 'Errore di caricamento';
+  const msg = document.createElement('p');
+  msg.className = 'hint';
+  msg.textContent = `Non riesco a caricare i modelli 3D (${err.message}). Ricarica la pagina; se il problema resta, prova un altro browser.`;
+  startBtn.after(msg);
+  throw err;
+}
 startBtn.disabled = false;
 startBtn.textContent = 'Entra nel mondo';
 

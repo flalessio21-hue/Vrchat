@@ -9,15 +9,21 @@ import { PlayerController } from './player/PlayerController.js';
 import { InputManager } from './input/InputManager.js';
 import { AvatarEditor } from './ui/AvatarEditor.js';
 import { HUD } from './ui/HUD.js';
+import { ShopUI } from './ui/ShopUI.js';
+import { Economy } from './game/Economy.js';
+import { Items, Gear } from './game/Gear.js';
+import { Coins } from './game/Coins.js';
+import { NPCs } from './game/NPCs.js';
+import { SHOP_INFO, item } from './game/catalog.js';
 
 const canvas = document.getElementById('scene');
 const engine = new Engine(canvas);
 
 // caricamento dei modelli Blender con barra di avanzamento
 const startBtn = document.getElementById('btn-start');
-const progress = { avatar: 0, hub: 0 };
+const progress = { avatar: 0, hub: 0, items: 0 };
 const showProgress = () => {
-  const pct = Math.round(((progress.avatar + progress.hub) / 2) * 100);
+  const pct = Math.round(((progress.avatar + progress.hub + progress.items) / 3) * 100);
   startBtn.textContent = `Caricamento… ${pct}%`;
 };
 const track = (key) => (e) => {
@@ -27,7 +33,7 @@ const track = (key) => (e) => {
 startBtn.disabled = true;
 showProgress();
 try {
-  await Promise.all([Avatar.load(track('avatar')), Hub.load(track('hub'))]);
+  await Promise.all([Avatar.load(track('avatar')), Hub.load(track('hub')), Items.load(track('items'))]);
 } catch (err) {
   // niente attesa infinita: mostriamo cosa è andato storto
   console.error(err);
@@ -49,6 +55,59 @@ const player = new PlayerController(engine, avatar, hub);
 const input = new InputManager(canvas, engine.renderer);
 const hud = new HUD(hub);
 hud.setName(avatarConfig.name);
+
+// --- economia, negozi, veicoli, animali, monete, passanti
+const economy = new Economy();
+const gear = new Gear(engine.scene, player, hub);
+const coins = new Coins(engine.scene, hub.layout.coins || []);
+const npcs = new NPCs(engine.scene, hub);
+const coinsEl = document.getElementById('hud-coins');
+const rideBtn = document.getElementById('btn-ride');
+function refreshCoins() {
+  coinsEl.textContent = `🪙 ${economy.coins}`;
+}
+function applyEquip(type, id) {
+  if (type === 'vehicle') {
+    gear.setVehicle(id);
+    rideBtn.classList.toggle('hidden', !id);
+    if (id) rideBtn.textContent = item(id).emoji;
+  } else if (type === 'pet') gear.setPet(id);
+  else if (type === 'effect') gear.setEffect(id);
+}
+economy.onChange(refreshCoins);
+refreshCoins();
+for (const type of ['vehicle', 'pet', 'effect']) applyEquip(type, economy.equipped(type));
+const shopUI = new ShopUI(economy, {
+  onEquip: (type, id) => applyEquip(type, id),
+  onSnack: (it) => {
+    avatar.playEmote(it.id === 'bubble' ? 'dance' : 'cheer');
+  },
+  onClose: () => (input.enabled = true),
+});
+function openShop(id) {
+  if (engine.isXR) return;
+  input.enabled = false;
+  shopUI.open(id);
+}
+function toggleRide() {
+  if (!gear.vehicle) {
+    hud.toast('Non hai ancora un veicolo: passa dal <b>Garage Turbo</b> in piazza!', 2.5);
+    return;
+  }
+  gear.setRiding(!gear.riding);
+}
+// merce in vetrina sui piedistalli dei negozi
+const showcase = [];
+for (const [id, shop] of Object.entries(hub.layout.shops || {})) {
+  (SHOP_INFO[id]?.displays || []).forEach((itemId, i) => {
+    const d = shop.displays[i];
+    if (!d) return;
+    const m = Items.model(itemId, item(itemId)?.color);
+    m.position.set(d[0], d[1], d[2]);
+    engine.scene.add(m);
+    showcase.push(m);
+  });
+}
 
 const editor = new AvatarEditor({
   getConfig: () => avatarConfig,
@@ -97,6 +156,7 @@ document.getElementById('travel').addEventListener('click', () => {
 
 function interact(it) {
   if (it.type === 'teleport') return openTravel();
+  if (it.type === 'shop') return openShop(it.data);
   if (it.type === 'portal') WorldManager.enter(it.data.world);
   else if (it.type === 'sit') player.sit(it.data);
   else if (it.type === 'mirror') {
@@ -127,9 +187,21 @@ engine.onUpdate((dt, t) => {
   const state = input.poll();
   if (state.avatar && !engine.isXR) editor.toggle();
   if (state.map) openTravel();
+  if (state.bag) openShop('inventory');
+  if (state.ride) toggleRide();
   if (state.emote) player.emote(state.emote);
 
   player.update(dt, state);
+  gear.update(dt, t);
+  npcs.update(dt, t, player.position);
+  const got = coins.update(dt, t, player);
+  if (got) {
+    economy.add(got);
+    coinsEl.classList.remove('bump');
+    void coinsEl.offsetWidth;
+    coinsEl.classList.add('bump');
+  }
+  for (const m of showcase) m.rotation.y += dt * 0.8;
   hub.update(dt, t, player.position, engine.isXR);
   hub.followShadow(player.position);
 
@@ -181,6 +253,8 @@ document.getElementById('btn-start').addEventListener('click', () => {
 });
 document.getElementById('btn-avatar').addEventListener('click', () => editor.toggle());
 document.getElementById('btn-travel').addEventListener('click', openTravel);
+document.getElementById('btn-bag').addEventListener('click', () => openShop('inventory'));
+rideBtn.addEventListener('click', toggleRide);
 document.getElementById('btn-mirror').addEventListener('click', () => {
   hub.toggleMirror();
   hud.toast(hub.mirrorOn ? 'Specchio acceso' : 'Specchio spento', 1.5);
@@ -203,4 +277,4 @@ Engine.isVRSupported().then((ok) => {
 engine.start();
 
 // Debug in console
-window.oasis = { engine, hub, player, avatar };
+window.oasis = { engine, hub, player, avatar, economy, gear, npcs, coins, shopUI };

@@ -17,7 +17,7 @@
       <div class="logo">OASIS</div>
       <div class="subtitle">Hub sociale</div>
       <button id="btn-start" class="btn primary">Entra nel mondo</button>
-      <p class="hint">WASD muoviti · Shift corri · Spazio salta · trascina per guardarti intorno · E interagisci · C personaggio · M mappa · 1-4 emote</p>
+      <p class="hint">WASD muoviti · Shift corri · Spazio salta · trascina per guardarti intorno · E interagisci · C personaggio · M mappa · B zaino · V veicolo · 1-4 emote</p>
     </div>
 
     <!-- HUD -->
@@ -28,8 +28,11 @@
           <div id="hud-name"></div>
           <div id="hud-location">Oasis · Isola Centrale</div>
         </div>
+        <div id="hud-coins">🪙 0</div>
       </div>
       <div id="hud-buttons">
+        <button id="btn-ride" class="btn small hidden" title="Sali/scendi dal veicolo (V)">🛹</button>
+        <button id="btn-bag" class="btn small" title="Zaino (B)">🎒</button>
         <button id="btn-travel" class="btn small" title="Teletrasporto (M)">🗺️ Mappa</button>
         <button id="btn-mirror" class="btn small" title="Specchio">🪞</button>
         <button id="btn-avatar" class="btn small" title="Personaggio (C)">Personaggio</button>
@@ -56,6 +59,19 @@
         <canvas id="travel-map" width="400" height="400"></canvas>
         <p class="travel-hint">Scegli dove andare</p>
         <div id="travel-list"></div>
+      </div>
+    </div>
+
+    <!-- Negozi e zaino -->
+    <div id="shop" class="hidden">
+      <div class="travel-card">
+        <div class="ed-head">
+          <h2 id="shop-title">Negozio</h2>
+          <div class="shop-head-right"><span id="shop-coins">🪙 0</span><button id="shop-close" class="btn small">Chiudi</button></div>
+        </div>
+        <p id="shop-intro" class="travel-hint"></p>
+        <div id="shop-list"></div>
+        <p id="shop-msg" class="travel-hint"></p>
       </div>
     </div>
 

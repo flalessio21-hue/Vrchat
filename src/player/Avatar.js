@@ -7,7 +7,10 @@ import { loadGLTF } from '../core/assets.js';
 import { makeNameTag } from '../world/textSprite.js';
 
 const URL = 'models/avatar.glb';
-const OUTLINE = 0.006;
+const OUTLINE = 0.009; // contorno spesso: look da cartone animato
+// gambe più corte: proporzioni "chibi" (scala delle cosce e abbassamento del bacino)
+const LEG_SCALE = 0.84;
+const LEG_DROP = 0.86 * (1 - LEG_SCALE);
 
 // varianti presenti nel modello Blender (nome oggetto -> opzione)
 const VARIANTS = {
@@ -59,8 +62,10 @@ export class Avatar {
     Avatar.asset = await loadGLTF(URL, onProgress);
   }
 
-  constructor(config = DEFAULT_AVATAR) {
+  constructor(config = DEFAULT_AVATAR, { npc = false } = {}) {
     if (!Avatar.asset) throw new Error('Avatar.load() deve essere chiamato prima');
+    this.npc = npc;
+    this.riding = null; // 'ride_stand' | 'ride_sit' quando si usa un veicolo
     this.root = new THREE.Group();
     this.root.name = 'avatar';
     this.body = new THREE.Group();
@@ -112,10 +117,10 @@ export class Avatar {
         return;
       }
       o.material = this.mats[name] || this.mats.Skin;
-      o.castShadow = true;
+      o.castShadow = !npc;
     });
-    // contorni (guscio invertito) anche per i mesh con scheletro
-    for (const m of meshes) {
+    // contorni (guscio invertito) anche per i mesh con scheletro; i passanti ne fanno a meno (prestazioni)
+    for (const m of npc ? [] : meshes) {
       if (m.material === this.faceMat || m.material === this.mats.Accent || m.material === this.mats.Visor) continue;
       const o = m.isSkinnedMesh ? new THREE.SkinnedMesh(m.geometry, outlineMaterial(OUTLINE, 0x2a1a38)) : new THREE.Mesh(m.geometry, outlineMaterial(OUTLINE, 0x2a1a38));
       if (m.isSkinnedMesh) o.bind(m.skeleton, m.bindMatrix);
@@ -203,7 +208,7 @@ export class Avatar {
       this.nameTag.material.dispose();
     }
     this.nameTag = makeNameTag(name);
-    this.nameTag.position.y = 2.0 * this.config.height;
+    this.nameTag.position.y = 1.9 * this.config.height;
     this.root.add(this.nameTag);
   }
 
@@ -232,7 +237,8 @@ export class Avatar {
 
     // pesi desiderati
     const target = Object.fromEntries(Object.keys(this.actions).map((k) => [k, 0]));
-    if (!grounded) target.jump = 1;
+    if (this.riding) target[this.riding] = 1;
+    else if (!grounded) target.jump = 1;
     else if (this.emote) target[this.emote] = 1;
     else if (speed > 0.15) {
       const run = THREE.MathUtils.smoothstep(speed, WALK_SPEED * 1.15, RUN_SPEED * 0.9);
@@ -257,6 +263,10 @@ export class Avatar {
     this.actions.run.time = this.locoPhase * this.actions.run.getClip().duration;
 
     this.mixer.update(dt);
+
+    // proporzioni da cartone: gambe più corte, bacino più basso
+    for (const n of ['thigh_L', 'thigh_R']) this.bones[n]?.scale.set(1, LEG_SCALE, 1);
+    if (this.bones.hips) this.bones.hips.position.y -= LEG_DROP;
 
     // corporatura: allarga il busto (dopo il mixer, che riscrive le scale)
     const chest = this.bones.chest;

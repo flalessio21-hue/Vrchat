@@ -209,3 +209,30 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   .travel-card .ed-head { grid-column: 1 / -1; }
   #travel-map { grid-row: span 2; }
 }
+
+/* Monete e negozi */
+#hud-coins {
+  margin-left: 6px; padding: 4px 10px; border-radius: 999px; font-weight: 800;
+  background: rgba(255, 200, 80, 0.18); border: 1px solid rgba(255, 200, 80, 0.5); color: #ffe08a;
+}
+#hud-coins.bump { animation: bump 0.4s ease; }
+@keyframes bump { 50% { transform: scale(1.25); } }
+#shop {
+  position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 6, 30, 0.55); backdrop-filter: blur(6px); padding: 16px;
+  user-select: auto; -webkit-user-select: auto; touch-action: pan-y;
+}
+.shop-head-right { display: flex; gap: 10px; align-items: center; }
+#shop-coins { font-weight: 800; color: #ffe08a; }
+#shop-list { display: grid; gap: 8px; }
+.shop-item {
+  display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px;
+}
+.shop-emoji { font-size: 34px; text-align: center; }
+.shop-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.shop-text span { color: var(--muted); font-size: 13px; }
+.shop-item .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.shop-empty { color: var(--muted); line-height: 1.5; }
+#shop .travel-card { display: block; width: min(560px, 100%); }
+@media (max-height: 500px) { #shop-list { grid-template-columns: 1fr 1fr; } #shop .travel-card { width: min(760px, 100%); } }

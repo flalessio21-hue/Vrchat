@@ -14,8 +14,8 @@ from mathutils import Matrix, Vector, noise
 
 PI = math.pi
 
-WORLD_R = 182.0
-BOUNDS = 175.0
+WORLD_R = 300.0
+BOUNDS = 292.0
 PLAZA_FLAT = 52.0
 LAKE = (108.0, 62.0)
 LAKE_R = 40.0
@@ -29,6 +29,13 @@ STAGE = (95.0, -60.0)
 MEADOW = (-105.0, 60.0)
 FOREST = (0.0, 125.0)
 CLEARING = (0.0, 128.0)
+MEDIEVAL = (-160.0, -150.0)
+CASTLE = (-200.0, -192.0)
+CHINA = (225.0, -40.0)
+POND = (238.0, -18.0)
+SNOW = (-175.0, 175.0)
+ICE = (-150.0, 200.0)
+PEAKS = [(-210.0, 205.0, 40.0, 30.0), (-130.0, 240.0, 30.0, 26.0), (-250.0, 135.0, 32.0, 26.0), (-95.0, 262.0, 22.0, 22.0)]
 
 ROADS = [
     [(0, -50), (0, -88)],                                  # verso il Quartiere Neon
@@ -37,6 +44,9 @@ ROADS = [
     [(-43, -25), (-72, -42), (-92, -53)],                  # collina
     [(43, -25), (78, -48)],                                # palco
     [(-43, 25), (-88, 50)],                                # prato
+    [(-92, -53), (-128, -112), (-150, -138)],               # borgo medievale
+    [(78, -48), (140, -46), (192, -40)],                   # città d'oriente
+    [(-88, 50), (-128, 108), (-160, 152)],                 # valle innevata
 ]
 
 ZONES = [
@@ -47,6 +57,9 @@ ZONES = [
     {'name': 'Collina del Vento', 'x': HILL[0], 'z': HILL[1], 'r': 58},
     {'name': 'Palco delle Stelle', 'x': STAGE[0], 'z': STAGE[1], 'r': 34},
     {'name': "Prato dell'Albero Antico", 'x': MEADOW[0], 'z': MEADOW[1], 'r': 42},
+    {'name': 'Borgo Medievale', 'x': -170, 'z': -165, 'r': 70, 'theme': 'medieval'},
+    {'name': "Città d'Oriente", 'x': CHINA[0], 'z': CHINA[1], 'r': 62, 'theme': 'east'},
+    {'name': 'Valle Innevata', 'x': SNOW[0], 'z': SNOW[1], 'r': 85, 'theme': 'snow'},
 ]
 
 
@@ -95,6 +108,21 @@ def H(x, z):
     h = lerp(h, 0.3, smooth(32, 20, math.hypot(x - STAGE[0], z - STAGE[1])))
     h = lerp(h, 0.6, smooth(22, 12, math.hypot(x - CLEARING[0], z - CLEARING[1])))
     h = lerp(h, h * 0.35, smooth(26, 10, math.hypot(x - MEADOW[0], z - MEADOW[1])))
+    # borgo medievale: villaggio pianeggiante e castello su un colle
+    h = lerp(h, 0.8, smooth(40, 26, math.hypot(x - MEDIEVAL[0], z - MEDIEVAL[1])))
+    dc = math.hypot(x - CASTLE[0], z - CASTLE[1])
+    h = max(h, 7.0 * math.exp(-dc * dc / (2 * 26 * 26)) + 0.8 * smooth(60, 30, dc))
+    h = lerp(h, 6.4, smooth(24, 20, dc))  # spianata del castello
+    # città d'oriente con laghetto
+    h = lerp(h, 0.5, smooth(52, 40, math.hypot(x - CHINA[0], z - CHINA[1])))
+    dp = math.hypot(x - POND[0], z - POND[1])
+    h = lerp(h, -1.6, smooth(13, 9, dp))
+    # valle innevata: montagne alle spalle, villaggio e laghetto ghiacciato in piano
+    for px, pz, ph, ps in PEAKS:
+        d = math.hypot(x - px, z - pz)
+        h += ph * math.exp(-d * d / (2 * ps * ps)) * (0.8 + 0.2 * noise.noise(Vector((x * 0.05, z * 0.05, 7.0))))
+    h = lerp(h, 1.5, smooth(30, 20, math.hypot(x - SNOW[0], z - SNOW[1])))
+    h = lerp(h, 1.2, smooth(18, 14, math.hypot(x - ICE[0], z - ICE[1])))
     # lago con spiaggia
     dl = math.hypot(x - LAKE[0], z - LAKE[1])
     if dl < LAKE_R:
@@ -154,6 +182,20 @@ def terrain_color(x, z):
     cl = smooth(9, 6, math.hypot(x - CLEARING[0], z - CLEARING[1]))
     col = col.lerp(Vector((0.55, 0.45, 0.36)), cl)
     g *= 1 - cl
+    # neve: valle e cime
+    sn = max(smooth(95, 60, math.hypot(x - SNOW[0], z - SNOW[1])), smooth(14, 22, h) * smooth(140, 90, math.hypot(x - SNOW[0], z - SNOW[1])))
+    col = col.lerp(Vector((0.95, 0.97, 1.0)) * (0.94 + 0.06 * n), sn)
+    g *= 1 - sn
+    # lastricati del borgo e della città d'oriente
+    mv = smooth(18, 12, math.hypot(x - MEDIEVAL[0], z - MEDIEVAL[1]))
+    col = col.lerp(Vector((0.62, 0.56, 0.5)) * (0.9 + 0.1 * n), mv)
+    g *= 1 - mv
+    ce = smooth(36, 30, math.hypot(x - CHINA[0], z - CHINA[1]))
+    col = col.lerp(Vector((0.78, 0.74, 0.7)) * (0.92 + 0.08 * n), ce)
+    g *= 1 - ce
+    cs = smooth(22, 18, math.hypot(x - CASTLE[0], z - CASTLE[1]))
+    col = col.lerp(Vector((0.55, 0.52, 0.5)), cs)
+    g *= 1 - cs
     if r < 25:
         g = 0.0
     if h < -0.55:
@@ -216,13 +258,17 @@ class World:
             return False
         if math.hypot(x - HILL[0], z - HILL[1]) < 15 or math.hypot(x - MEADOW[0], z - MEADOW[1]) < 12:
             return False
+        if math.hypot(x - MEDIEVAL[0], z - MEDIEVAL[1]) < 42 or math.hypot(x - CASTLE[0], z - CASTLE[1]) < 30:
+            return False
+        if math.hypot(x - CHINA[0], z - CHINA[1]) < 52 or math.hypot(x - SNOW[0], z - SNOW[1]) < 100:
+            return False
         return True
 
     # ---------------------------------------------------------------- terreno
     def build_terrain(self):
         c = self.c
-        step = 2.0
-        N = 201
+        step = 2.5
+        N = 261
         half = (N - 1) * step / 2
         bm = bmesh.new()
         verts = {}
@@ -876,7 +922,7 @@ class World:
         c = self.c
         r = random.Random(4242)
         counts = {'tree': 0, 'bush': 0, 'rock': 0, 'flowers': 0}
-        target = {'tree': 130, 'bush': 160, 'rock': 70, 'flowers': 140}
+        target = {'tree': 300, 'bush': 280, 'rock': 140, 'flowers': 260}
         tries = 0
         while any(counts[k] < target[k] for k in counts) and tries < 30000:
             tries += 1
@@ -953,6 +999,8 @@ class World:
             colattr.data[i].color = (*cc, 1)
         srcs['flowers'] = fl
         srcs['palm'] = self.palm()
+        srcs['pine_snow'] = self.snowy_pine()
+        srcs['bamboo'] = self.bamboo()
         out = {}
         for k, o in srcs.items():
             o.name = f'Inst_{k}'

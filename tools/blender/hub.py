@@ -109,6 +109,19 @@ MAT = {
     'Roof': material('Roof', (0.18, 0.42, 0.45, 1), rough=0.6),
     'Mushroom': material('Mushroom', (0.9, 0.2, 0.25, 1), rough=0.6),
     'LeavesAutumn': material('LeavesAutumn', (1.0, 0.55, 0.2, 1), rough=0.8),
+    'Plaster': material('Plaster', (0.95, 0.92, 0.85, 1), rough=0.85),
+    'Timber': material('Timber', (0.3, 0.2, 0.14, 1), rough=0.8),
+    'RoofRed': material('RoofRed', (0.72, 0.28, 0.2, 1), rough=0.7),
+    'RoofBlue': material('RoofBlue', (0.25, 0.35, 0.7, 1), rough=0.6),
+    'RoofJade': material('RoofJade', (0.2, 0.55, 0.5, 1), rough=0.5),
+    'CastleStone': material('CastleStone', (0.66, 0.63, 0.6, 1), rough=0.9),
+    'LanternRed': material('LanternRed', (1.0, 0.25, 0.2, 1), emissive=(1.0, 0.3, 0.15, 2.5)),
+    'Snow': material('Snow', (0.97, 0.98, 1.0, 1), rough=0.75),
+    'Ice': material('Ice', (0.7, 0.88, 1.0, 1), rough=0.05, metal=0.1),
+    'Carrot': material('Carrot', (1.0, 0.5, 0.1, 1), rough=0.6),
+    'Bamboo': material('Bamboo', (0.55, 0.75, 0.3, 1), rough=0.6),
+    'BannerBlue': material('BannerBlue', (0.2, 0.35, 0.85, 1), rough=0.8),
+    'BannerRed': material('BannerRed', (0.85, 0.15, 0.2, 1), rough=0.8),
 }
 PORTAL_MATS = []
 for wid, col in zip(WORLDS, WORLD_COLORS):
@@ -716,7 +729,7 @@ def build_far_islands():
     r = random.Random(21)
     for k in range(10):
         a = r.random() * 2 * PI
-        d = 235 + r.random() * 110
+        d = 360 + r.random() * 120
         s = 3 + r.random() * 7
         isle = rock_island(f'FarIsland_{k}', s, s * 1.9, k + 60)
         place(isle, math.sin(a) * d, -4 + r.random() * 40, math.cos(a) * d, r.random() * 6)
@@ -767,6 +780,9 @@ build_welcome()
 
 # ------------------------------------------------------------------ mondo grande
 from world_districts import World, BOUNDS, PLAZA_FLAT, WORLD_R  # noqa: E402
+import world_extra  # noqa: E402
+
+world_extra.install(World)
 
 world = World({
     'G': G, 'place': place, 'box': box, 'cylinder': cylinder, 'lathe': lathe, 'blob': blob, 'disc': disc,
@@ -781,8 +797,14 @@ world.build_forest()
 world.build_hill()
 world.build_stage()
 world.build_meadow()
+world.build_medieval()
+world.build_east()
+world.build_snow()
+world.build_plaza_extras()
+world.npc_spots_misc()
 world.scatter_countryside()
 world.pad('Piazza Centrale', 7.5, 19.0, y=0.0, facing=PI)
+world.scatter_coins()
 SOURCES = world.build_instance_sources()
 world.export_instances()
 
@@ -832,7 +854,7 @@ for k, o in enumerate(SOURCES.values()):  # lontano da tutto: AO solo su se stes
 bpy.context.view_layer.update()
 bake_ao(list(SOURCES.values()))
 temps = []
-for kind in ('pine', 'round', 'sakura', 'autumn', 'rock', 'bush', 'palm'):
+for kind in ('pine', 'round', 'sakura', 'autumn', 'rock', 'bush', 'palm', 'pine_snow', 'bamboo'):
     src = SOURCES[kind]
     for x, y, z, rot, sc in LAYOUT['instances'].get(kind, []):
         t = bpy.data.objects.new('tmp', src.data)

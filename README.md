@@ -4,7 +4,7 @@ Prototipo di un metaverso ispirato al concetto di "Oasis": per ora **web**, pens
 un'app per **Meta Quest** (WebXR), **Android** e **iPhone** senza riscrivere il gioco.
 
 Al momento contiene:
-- **Un'isola grande da esplorare** (circa 370 m di diametro) con terreno vero, colline, lago e scogliere
+- **Un'isola grande da esplorare** (circa 600 m di diametro) con terreno vero, colline, lago e scogliere
   sul mare di nuvole, divisa in quartieri:
   - **Piazza Centrale**: fontana con cristallo, 6 portali verso i mondi futuri, specchio, panchine
   - **Quartiere Neon**: grattacieli illuminati, insegne, lampioni al neon, piazza con schermo olografico
@@ -13,9 +13,17 @@ Al momento contiene:
   - **Collina del Vento**: tempio panoramico con campana e cannocchiale
   - **Palco delle Stelle**: palco per concerti con luci, casse e file di sedute
   - **Prato dell'Albero Antico**: albero gigante in mezzo ai fiori
+  - **Borgo Medievale**: castello con torri e mastio, case a graticcio, taverna, pozzo, mulino a vento, campo di grano
+  - **Città d'Oriente**: porta monumentale, pagoda a cinque piani, case dai tetti curvi, laghetto con ponte ad arco, lanterne rosse, bambù, sala da tè
+  - **Valle Innevata**: montagne, neve che cade, baita, igloo, pupazzi di neve, laghetto ghiacciato su cui si scivola
+- **Piazza viva**: passanti che camminano, salutano e ballano, 4 negozi con commessi e merce in vetrina,
+  fioriere, stendardi, mongolfiere nel cielo.
+- **Negozi e monete**: raccogli le monete 🪙 sparse per il mondo e compra veicoli (hoverboard, monopattino,
+  kart, nuvoletta), animali che ti seguono (gelatina, gattobot, gufetto, draghetto), effetti (aura, scia di stelle,
+  cuoricini, neve) e snack. Zaino (B) per usare ciò che possiedi, V per salire/scendere dal veicolo.
 - **Teletrasporti** (piattaforme luminose o pulsante Mappa / tasto M) e minimappa a radar;
   il nome del quartiere compare quando ci entri.
-- **Avatar stile anime** creato in Blender: dita, polpacci, spalle modellati; capelli a strati
+- **Avatar stile cartone** creato in Blender (testa grande, occhi grandi, gambe corte, ombre a bande e contorno spesso): dita, polpacci, spalle modellati; capelli a strati
   (7 tagli), felpa con cappuccio e zip, giacca con risvolti, maglietta, tuta cyber con guanti,
   pantaloni, cargo, shorts, gonna, sneakers o stivali, 10 accessori (orecchie, aureola, cuffie,
   occhiali, corna, ali, visore, corona, zaino). Viso con espressioni, riflesso anime sui capelli.
@@ -28,7 +36,8 @@ Tutta la grafica 3D è generata **da zero con script Blender** (nessun asset sca
 | Script | Output | Contenuto |
 |---|---|---|
 | `tools/blender/avatar.py` | `public/models/avatar.glb` | avatar con scheletro (armatura), corpo modellato con Skin + Subdivision, capelli a ciocche da curve, 6 tagli, 3 sopra, 3 sotto, 6 accessori, scarpe; 9 animazioni (idle, walk, run, jump, wave, dance, cheer, sit, floor) |
-| `tools/blender/hub.py` + `world_districts.py` | `public/models/hub.glb` + `hub.json` | terreno con colline e lago, piazza, quartieri (città, lago, foresta, collina, palco, prato), alberi/rocce/fiori come istanze; **occlusione ambientale cotta con Cycles** nei colori dei vertici; layout di gioco (mappa delle altezze, collisioni, piattaforme, sedute, portali, teletrasporti, zone) |
+| `tools/blender/items.py` | `public/models/items.glb` | veicoli, animali da compagnia e moneta dei negozi |
+| `tools/blender/hub.py` + `world_districts.py` + `world_extra.py` | `public/models/hub.glb` + `hub.json` | terreno con colline e lago, piazza, quartieri (città, lago, foresta, collina, palco, prato), alberi/rocce/fiori come istanze; **occlusione ambientale cotta con Cycles** nei colori dei vertici; layout di gioco (mappa delle altezze, collisioni, piattaforme, sedute, portali, teletrasporti, zone) |
 
 Per rigenerarli serve Blender come modulo Python (`pip install bpy`, Python 3.13):
 
@@ -53,7 +62,7 @@ npm run build    # build statica in dist/
 
 | Dispositivo | Movimento | Camera | Salto | Interagisci | Personaggio |
 |---|---|---|---|---|---|
-| PC | WASD / frecce, Shift corri | trascina col mouse, rotella zoom | Spazio | E | C · M mappa · emote 1-4 |
+| PC | WASD / frecce, Shift corri | trascina col mouse, rotella zoom | Spazio | E | C · M mappa · B zaino · V veicolo · emote 1-4 |
 | Telefono/tablet | joystick a sinistra (spingi tutto per correre) | trascina sullo schermo | ⤒ | E | pulsante in alto |
 | Gamepad | stick sinistro | stick destro | A | X | — |
 | Meta Quest (VR) | stick sinistro | guardati intorno, stick destro = rotazione a scatti | A | trigger / X | — |
@@ -70,6 +79,7 @@ src/
   player/Avatar.js        avatar da Blender: varianti, colori, fusione animazioni, emote
   player/avatarParts.js   disegno del viso (occhi, espressioni)
   core/assets.js          caricamento glTF compressi (meshopt)
+  game/                   economia, catalogo, negozi, veicoli e animali (Gear), monete, passanti (NPCs)
 tools/
   blender/                script Blender che creano avatar e hub
   build-models.sh         rigenera e comprime i modelli

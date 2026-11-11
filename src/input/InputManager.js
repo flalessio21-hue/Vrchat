@@ -37,6 +37,8 @@ export class InputManager {
       if (e.code === 'KeyE' || e.code === 'Enter') this.pending.interact = true;
       if (e.code === 'KeyC') this.pending.avatar = true;
       if (e.code === 'KeyM') this.pending.map = true;
+      if (e.code === 'KeyB') this.pending.bag = true;
+      if (e.code === 'KeyV') this.pending.ride = true;
       const emotes = { Digit1: 'wave', Digit2: 'dance', Digit3: 'cheer', Digit4: 'floor' };
       if (emotes[e.code]) this.pending.emote = emotes[e.code];
     });
@@ -219,7 +221,9 @@ export class InputManager {
     Object.assign(s, { moveX: mx, moveY: my, lookX, lookY, zoom: p.zoom, run, jump, interact, snapTurn });
     s.avatar = p.avatar;
     s.map = this.enabled ? p.map : false;
-    p.map = false;
+    s.bag = this.enabled ? p.bag : false;
+    s.ride = this.enabled ? p.ride : false;
+    p.map = p.bag = p.ride = false;
     s.emote = this.enabled ? p.emote : null;
     p.emote = null;
     if (!this.enabled) Object.assign(s, { moveX: 0, moveY: 0, jump: false, interact: false });

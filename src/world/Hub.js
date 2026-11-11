@@ -66,7 +66,7 @@ export class Hub {
         radius: it.radius,
         type: it.type,
         label: it.label,
-        data: it.type === 'sit' ? this.seats[it.seat] : it.type === 'teleport' ? this.destinations : null,
+        data: it.type === 'sit' ? this.seats[it.seat] : it.type === 'teleport' ? this.destinations : it.type === 'shop' ? it.shop : null,
       })),
     ];
 
@@ -81,6 +81,8 @@ export class Hub {
     this.buildGrass();
     this.buildFountainFx();
     this.buildCampfire();
+    this.buildSnowfall();
+    this.buildBalloons();
     this.buildMirror();
     this.buildGem();
     this.buildParticles();
@@ -311,6 +313,16 @@ export class Hub {
         const id = name.slice(7);
         o.material = this.portalMaterial(WORLDS.find((w) => w.id === id));
         return;
+      }
+      const bt = this.layout.boardTexts?.[name];
+      if (bt) {
+        const tex = textBoard(bt.text, bt.style, bt.aspect);
+        tex.flipY = false;
+        o.material = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, toneMapped: bt.style !== 'shop' });
+        return;
+      }
+      if (name === 'Windmill_blades') {
+        this.animated.push((dt) => o.rotateZ(dt * 0.7));
       }
       if (name.startsWith('Board_')) {
         const id = name.slice(6);
@@ -871,8 +883,91 @@ export class Hub {
     return ground;
   }
 
+  /** Il punto è sul laghetto ghiacciato? (si scivola) */
+  onIce(x, z) {
+    const ice = this.layout.ice;
+    return !!ice && Math.hypot(x - ice.x, z - ice.z) < ice.r;
+  }
+
+  zoneTheme(x, z) {
+    for (const zn of this.zones) if (zn.theme && Math.hypot(x - zn.x, z - zn.z) < zn.r) return zn.theme;
+    return null;
+  }
+
+  // ------------------------------------------------------------- neve che cade (solo nella valle)
+  buildSnowfall() {
+    const N = 2500;
+    const pos = new Float32Array(N * 3);
+    const r = rng(42);
+    for (let i = 0; i < N; i++) pos.set([(r() - 0.5) * 60, r() * 30, (r() - 0.5) * 60], i * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.9, depthWrite: false });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    pts.visible = false;
+    this.group.add(pts);
+    this.snow = { pts, pos, base: pos.slice() };
+  }
+
+  updateSnow(dt, t, p) {
+    const s = this.snow;
+    const want = this.zoneTheme(p.x, p.z) === 'snow';
+    s.pts.visible = want;
+    if (!want) return;
+    const { pos, base } = s;
+    for (let i = 0; i < pos.length; i += 3) {
+      const y = (((base[i + 1] - t * 1.6) % 30) + 30) % 30;
+      pos[i] = p.x + ((((base[i] + Math.sin(t * 0.5 + i) * 1.5 - p.x) % 60) + 90) % 60) - 30;
+      pos[i + 1] = this.terrainHeight(p.x, p.z) + y;
+      pos[i + 2] = p.z + ((((base[i + 2] - p.z) % 60) + 90) % 60) - 30;
+    }
+    s.pts.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // ------------------------------------------------------------- mongolfiere sopra la piazza
+  buildBalloons() {
+    const cols = [['#ff6a8a', '#ffe08a'], ['#7ff0ff', '#ffffff'], ['#a98bff', '#ffcf5a'], ['#7dff9a', '#ff9ce8'], ['#ffb02e', '#ff4d6d']];
+    cols.forEach(([a, b], i) => {
+      const tex = makePanelTexture((ctx, w, h) => {
+        for (let k = 0; k < 12; k++) {
+          ctx.fillStyle = k % 2 ? a : b;
+          ctx.fillRect((k * w) / 12, 0, w / 12 + 1, h);
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(0, h * 0.82, w, h * 0.04);
+      }, 256, 256);
+      const g = new THREE.Group();
+      const env = new THREE.Mesh(new THREE.SphereGeometry(4, 24, 16), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 }));
+      env.scale.y = 1.2;
+      const basket = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1, 1.4), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.9 }));
+      basket.position.y = -6.3;
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffb060 }));
+      flame.position.y = -5.4;
+      g.add(env, basket, flame);
+      for (const [x, z] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) {
+        const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6), new THREE.MeshBasicMaterial({ color: 0x5a4030 }));
+        rope.position.set(x * 1.4, -4.6, z * 1.4);
+        rope.rotation.z = x * 0.35;
+        rope.rotation.x = -z * 0.35;
+        g.add(rope);
+      }
+      this.group.add(g);
+      const R = 55 + i * 18;
+      const h0 = 38 + i * 9;
+      const sp = 0.012 + i * 0.003;
+      const ph = i * 1.3;
+      this.animated.push((dt, t) => {
+        const a = ph + t * sp;
+        g.position.set(Math.sin(a) * R, h0 + Math.sin(t * 0.3 + i) * 3, Math.cos(a) * R);
+        flame.scale.setScalar(0.8 + Math.random() * 0.4);
+      });
+    });
+  }
+
   update(dt, time, playerPos, isXR) {
     for (const fn of this.animated) fn(dt, time);
+    this.updateSnow(dt, time, playerPos);
     this.grassUniforms?.uCenter.value.set(playerPos.x, playerPos.z);
     const near = playerPos.distanceTo(this.mirror.position) < 22;
     this.mirror.visible = this.mirrorOn && near && !isXR;
@@ -952,4 +1047,44 @@ function neonSign(text, k) {
     ctx.fillStyle = col;
     ctx.fillText(text, w / 2, h / 2 + 6, w - 90);
   }, 1024, 276);
+}
+
+/** Cartello con testo: legno (borgo), pietra, oriente o insegna di negozio. */
+function textBoard(text, style, aspect = 3.5) {
+  const W = 1024;
+  const Hh = Math.round(W / aspect);
+  const styles = {
+    wood: { bg: '#6b4426', border: '#3a2414', color: '#ffe8c0', font: '800 {s}px Georgia, serif' },
+    stone: { bg: '#7a7470', border: '#4a4440', color: '#f4f0e8', font: '800 {s}px Georgia, serif' },
+    east: { bg: '#a0141c', border: '#e8b84a', color: '#ffd76a', font: '900 {s}px system-ui, sans-serif' },
+    shop: { bg: '#1c1640', border: '#7ff0ff', color: '#ffffff', font: '900 {s}px system-ui, sans-serif' },
+  };
+  const st = styles[style] || styles.wood;
+  return makePanelTexture((ctx, w, h) => {
+    ctx.fillStyle = st.bg;
+    ctx.fillRect(0, 0, w, h);
+    if (style === 'wood') {
+      for (let y = 0; y < h; y += 18) {
+        ctx.fillStyle = `rgba(0,0,0,${0.05 + (y % 36 ? 0.04 : 0)})`;
+        ctx.fillRect(0, y, w, 8);
+      }
+    }
+    ctx.strokeStyle = st.border;
+    ctx.lineWidth = 16;
+    ctx.strokeRect(10, 10, w - 20, h - 20);
+    let size = Math.round(h * 0.55);
+    ctx.font = st.font.replace('{s}', size);
+    while (ctx.measureText(text).width > w * 0.88 && size > 20) {
+      size -= 4;
+      ctx.font = st.font.replace('{s}', size);
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (style === 'shop') {
+      ctx.shadowColor = st.border;
+      ctx.shadowBlur = 24;
+    }
+    ctx.fillStyle = st.color;
+    ctx.fillText(text, w / 2, h / 2 + 4);
+  }, W, Hh);
 }

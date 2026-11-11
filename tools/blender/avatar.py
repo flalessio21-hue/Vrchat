@@ -53,8 +53,8 @@ M = {
 }
 
 # ------------------------------------------------------------------ proporzioni
-HEAD_C = Vector((0, 0, 1.585))
-HEAD_R = 0.148
+HEAD_R = 0.182  # testa grande: proporzioni da cartone animato
+HEAD_C = Vector((0, 0, 1.475 + HEAD_R * 0.98))
 ARM_DOWN = rad(40)  # posa a "A": braccia a 40° sotto l'orizzontale
 
 
@@ -145,7 +145,7 @@ bone('hips', (0, 0, 0.9), (0, 0, 1.0))
 bone('spine', (0, 0, 1.0), (0, 0, 1.15), 'hips', connect=True)
 bone('chest', (0, 0, 1.15), (0, 0, 1.34), 'spine', connect=True)
 bone('neck', (0, 0, 1.37), (0, 0, 1.45), 'chest')
-bone('head', (0, 0, 1.45), (0, 0, 1.74), 'neck', connect=True)
+bone('head', (0, 0, 1.45), (0, 0, HEAD_C.z + HEAD_R), 'neck', connect=True)
 for s, n in ((1, 'L'), (-1, 'R')):
     bone(f'shoulder_{n}', (0.03 * s, 0, 1.31), SH[s], 'chest')
     bone(f'upper_arm_{n}', SH[s], ELBOW[s], f'shoulder_{n}', connect=True)
@@ -170,8 +170,8 @@ def set_deform(names, value):
 
 
 # ------------------------------------------------------------------ corpo
-ARM_PTS = [(0.13, 0.047), (0.26, 0.04), (0.36, 0.041), (0.495, 0.031)]  # (distanza dalla spalla, raggio)
-LEG_PTS = [(0.15, 0.076), (0.33, 0.065), (0.5, 0.053), (0.62, 0.057), (0.8, 0.045), (1.0, 0.038)]  # frazione anca->caviglia
+ARM_PTS = [(0.13, 0.054), (0.26, 0.046), (0.36, 0.047), (0.495, 0.036)]  # (distanza dalla spalla, raggio)
+LEG_PTS = [(0.15, 0.082), (0.33, 0.071), (0.5, 0.06), (0.62, 0.064), (0.8, 0.052), (1.0, 0.044)]  # frazione anca->caviglia
 TORSO_PTS = [(0.93, (0.127, 0.097)), (1.03, (0.106, 0.083)), (1.13, (0.12, 0.09)), (1.22, (0.131, 0.097)), (1.31, (0.124, 0.088))]
 FWD = Vector((0, -1, 0))
 
@@ -201,17 +201,17 @@ def body_skeleton(scale=1.0, add=0.0, parts=('torso', 'arms', 'legs', 'hands', '
         d = arm_dir(s)
         n = palm_normal(s)
         W = WRIST[s]
-        palm = chain(wr, [(W + d * 0.045, (0.036, 0.017))])
+        palm = chain(wr, [(W + d * 0.05, (0.047, 0.022))])
         for k, off in enumerate((-0.024, -0.008, 0.008, 0.024)):
             ln = 0.8 if k == 3 else (0.95 if k == 0 else 1.0)
-            base = W + d * 0.083 + FWD * -off * 1.0
-            f1 = base + d * 0.03 * ln + n * 0.004
-            f2 = f1 + (d * 0.85 + n * 0.4).normalized() * 0.024 * ln
-            chain(palm, [(base, 0.011), (f1, 0.0095), (f2, 0.0078)])
+            base = W + d * 0.095 + FWD * -off * 1.3
+            f1 = base + d * 0.034 * ln + n * 0.005
+            f2 = f1 + (d * 0.85 + n * 0.4).normalized() * 0.028 * ln
+            chain(palm, [(base, 0.0145), (f1, 0.0125), (f2, 0.0105)])
         t0 = W + d * 0.02 + FWD * 0.022 + n * 0.012
         t1 = t0 + (d * 0.5 + FWD * 0.6 + n * 0.4).normalized() * 0.03
         t2 = t1 + (d * 0.8 + FWD * 0.3 + n * 0.35).normalized() * 0.024
-        chain(wr, [(t0, 0.014), (t1, 0.0115), (t2, 0.0092)])
+        chain(wr, [(t0, 0.018), (t1, 0.015), (t2, 0.012)])
 
     pelvis = v((0, 0, torso_low), (0.13, 0.1))
     if 'waist' in parts:  # vita dei pantaloni: anello sopra il bacino
@@ -301,7 +301,7 @@ def rounded_box(name, size, loc, mat, levels=2):
 def shoe(s, boots=False):
     A = ANKLE[s]
     parts = []
-    upper = rounded_box('upper', (0.1, 0.25, 0.09), A + Vector((0, -0.045, -0.035)), M['Shoes'])
+    upper = rounded_box('upper', (0.125, 0.3, 0.11), A + Vector((0, -0.055, -0.03)), M['Shoes'])
     for vtx in upper.data.vertices:
         z = vtx.co.z - (A.z - 0.035)
         if z < -0.02:
@@ -309,7 +309,7 @@ def shoe(s, boots=False):
         if vtx.co.y - A.y < -0.06:  # punta che scende
             vtx.co.z -= 0.014 * min(1.0, (-(vtx.co.y - A.y) - 0.06) / 0.1) * max(0.0, z + 0.02) / 0.06
     parts.append(upper)
-    sole = rounded_box('sole', (0.108, 0.262, 0.03), A + Vector((0, -0.045, -0.07)), M['Dark'] if boots else M['Sole'], levels=1)
+    sole = rounded_box('sole', (0.135, 0.315, 0.04), A + Vector((0, -0.055, -0.072)), M['Dark'] if boots else M['Sole'], levels=1)
     parts.append(sole)
     if boots:
         shaft = skin_mesh('shaft', [A + Vector((0, 0.005, -0.02)), A + Vector((0, 0.0, 0.1)), A + Vector((0, 0.005, 0.2))], [(0, 1), (1, 2)],
@@ -1129,10 +1129,41 @@ def p_floor(t):
     return P
 
 
+def p_ride_stand(t):
+    """In piedi su hoverboard o monopattino: ginocchia piegate, equilibrio."""
+    P = BASE()
+    sway = math.sin(t * 2 * PI)
+    P['hips_loc'] = Vector((sway * 0.01, 0, -0.08))
+    P['hips'] = Rz(0.25)
+    P['spine'] = Rx(0.12) @ Rz(-0.2)
+    P['head'] = Rz(-0.05)
+    for side, n in ((1, 'L'), (-1, 'R')):
+        P[f'thigh_{n}'] = leg_pose(side, -0.35, 0.12)
+        P[f'shin_{n}'] = Rx(0.6)
+        P[f'foot_{n}'] = Rx(-0.25)
+        P[f'upper_arm_{n}'] = arm_pose(side, 32 + sway * 4 * side, -0.2)
+        P[f'forearm_{n}'] = elbow_pose(side, 0.5)
+    return P
+
+
+def p_ride_sit(t):
+    """Seduto sul kart con le mani sul volante."""
+    P = BASE()
+    b = math.sin(t * 2 * PI * 2) * 0.004
+    P['hips_loc'] = Vector((0, 0.05, -0.48 + b))
+    for side, n in ((1, 'L'), (-1, 'R')):
+        P[f'thigh_{n}'] = leg_pose(side, -1.35, 0.1)
+        P[f'shin_{n}'] = Rx(0.9)
+        P[f'upper_arm_{n}'] = arm_pose(side, 16, -0.95)
+        P[f'forearm_{n}'] = elbow_pose(side, 0.7)
+    P['spine'] = Rx(-0.12)
+    return P
+
+
 ACTIONS = [
     ('idle', 120, p_idle), ('walk', 24, lambda t: locomotion(t, False)), ('run', 18, lambda t: locomotion(t, True)),
     ('jump', 20, p_jump), ('wave', 60, p_wave), ('cheer', 40, p_cheer), ('dance', 64, p_dance),
-    ('sit', 120, p_sit), ('floor', 120, p_floor),
+    ('sit', 120, p_sit), ('floor', 120, p_floor), ('ride_stand', 60, p_ride_stand), ('ride_sit', 60, p_ride_sit),
 ]
 
 rig.animation_data_create()

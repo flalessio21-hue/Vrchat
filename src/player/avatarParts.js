@@ -9,8 +9,8 @@ export function drawFace(ctx, S, { eyeColor, hairColor, eyes, expression }) {
   const k = S / 512;
   const eyeY = 246 * k;
   const dx = 138 * k;
-  const W = (eyes === 'sharp' ? 56 : 62) * k;
-  const H = (eyes === 'sharp' ? 62 : 80) * k;
+  const W = (eyes === 'sharp' ? 64 : 72) * k;
+  const H = (eyes === 'sharp' ? 70 : 94) * k;
   const lash = '#1d1424';
   const brow = shade(hairColor, -0.45);
 

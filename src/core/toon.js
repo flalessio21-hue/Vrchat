@@ -19,7 +19,7 @@ function makeGradient(steps) {
 
 export function toonGradient(soft = false) {
   if (!gradient3) gradient3 = makeGradient([90, 190, 255]);
-  if (!gradient4) gradient4 = makeGradient([70, 140, 210, 255]);
+  if (!gradient4) gradient4 = makeGradient([135, 210, 255]); // bande nette e ombre chiare: stile cartone
   return soft ? gradient4 : gradient3;
 }
 

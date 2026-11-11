@@ -34,6 +34,10 @@ export class PlayerController {
     this.preview = false; // inquadratura frontale per l'editor
     this.xrYaw = 0;
     this.wasXR = false;
+    this.speedMul = 1; // veicoli
+    this.riderY = 0; // altezza della pedana del veicolo
+    this.groundY = 0;
+    this.turnRate = 0;
 
     avatar.root.position.copy(this.position);
     engine.scene.add(avatar.root);
@@ -76,10 +80,11 @@ export class PlayerController {
       }
     }
 
-    const speed = input.run ? RUN : WALK;
+    const speed = (input.run ? RUN : WALK) * this.speedMul;
     const wantX = (fx * input.moveY + rx * input.moveX) * speed;
     const wantZ = (fz * input.moveY + rz * input.moveX) * speed;
-    const accel = this.grounded ? 14 : 4;
+    const onIce = this.world.onIce?.(this.position.x, this.position.z) && this.speedMul === 1;
+    const accel = !this.grounded ? 4 : onIce ? 1.6 : this.speedMul > 1 ? 6 : 14;
     const k = Math.min(accel * dt, 1);
     this.velocity.x += (wantX - this.velocity.x) * k;
     this.velocity.z += (wantZ - this.velocity.z) * k;
@@ -108,6 +113,7 @@ export class PlayerController {
 
     p.y += this.velocity.y * dt;
     const ground = this.world.groundAt(p.x, p.z, p.y);
+    this.groundY = ground;
     if (p.y <= ground) {
       p.y = ground;
       if (this.velocity.y < 0) this.velocity.y = 0;
@@ -122,9 +128,14 @@ export class PlayerController {
       const target = Math.atan2(this.velocity.x, this.velocity.z);
       let d = target - this.facing;
       d = Math.atan2(Math.sin(d), Math.cos(d));
-      this.facing += d * Math.min(dt * 12, 1);
+      const step = d * Math.min(dt * (this.speedMul > 1 ? 6 : 12), 1);
+      this.facing += step;
+      this.turnRate = step / Math.max(dt, 1e-3);
+    } else {
+      this.turnRate = 0;
     }
     this.avatar.root.position.copy(p);
+    this.avatar.root.position.y += this.riderY;
     this.avatar.root.rotation.y = this.facing;
     this.avatar.animate(dt, hSpeed, this.grounded, this.engine.clock.elapsedTime);
 

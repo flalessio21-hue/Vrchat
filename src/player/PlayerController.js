@@ -92,9 +92,19 @@ export class PlayerController {
     this.velocity.y -= GRAVITY * dt;
 
     const p = this.position;
+    const ox = p.x;
+    const oz = p.z;
     p.x += this.velocity.x * dt;
     p.z += this.velocity.z * dt;
     this.resolveCollisions();
+    // acqua profonda (niente nuoto, per ora) o pareti troppo ripide: si resta dove si è
+    const g = this.world.groundAt(p.x, p.z, p.y);
+    if (g < -0.95 || g > p.y + 0.9) {
+      p.x = ox;
+      p.z = oz;
+      this.velocity.x *= -0.2;
+      this.velocity.z *= -0.2;
+    }
 
     p.y += this.velocity.y * dt;
     const ground = this.world.groundAt(p.x, p.z, p.y);
@@ -135,9 +145,31 @@ export class PlayerController {
         p.z = cz + (dz / d) * min;
       }
     };
-    for (const c of this.world.colliders) push(c.x, c.z, c.r);
-    // le piattaforme troppo alte si comportano come muri
-    for (const pl of this.world.platforms) if (pl.top > p.y + 0.45) push(pl.x, pl.z, pl.r);
+    const pushBox = (b, extra = BODY_R) => {
+      const dx = p.x - b.x;
+      const dz = p.z - b.z;
+      const lx = dx * b.c - dz * b.s;
+      const lz = dx * b.s + dz * b.c;
+      const ox = b.hw + extra - Math.abs(lx);
+      const oz = b.hd + extra - Math.abs(lz);
+      if (ox <= 0 || oz <= 0) return;
+      // esce dal lato più vicino
+      let nx = lx;
+      let nz = lz;
+      if (ox < oz) nx = Math.sign(lx || 1) * (b.hw + extra);
+      else nz = Math.sign(lz || 1) * (b.hd + extra);
+      p.x = b.x + nx * b.c + nz * b.s;
+      p.z = b.z - nx * b.s + nz * b.c;
+    };
+    for (const it of this.world.nearby(p.x, p.z)) {
+      if (it.box) pushBox(it.box);
+      else if (it.plat) {
+        // le piattaforme troppo alte si comportano come muri
+        if (it.plat.top > p.y + 0.45) push(it.plat.x, it.plat.z, it.plat.r);
+      } else if (it.bplat) {
+        if (it.bplat.top > p.y + 0.45) pushBox(it.bplat, BODY_R * 0.5);
+      } else push(it.x, it.z, it.r);
+    }
 
     const r = Math.hypot(p.x, p.z);
     const max = this.world.bounds;
@@ -166,7 +198,8 @@ export class PlayerController {
       return;
     }
 
-    this.camTarget.lerp(tmpV.set(p.x, p.y + h, p.z), Math.min(dt * 12, 1));
+    this.camTarget.lerp(tmpV.set(p.x, p.y + h, p.z), this.snapCamera ? 1 : Math.min(dt * 12, 1));
+    this.snapCamera = false;
     const cp = Math.cos(this.pitch);
     const offset = new THREE.Vector3(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);
 
@@ -182,7 +215,7 @@ export class PlayerController {
       }
     }
     cam.position.copy(t).addScaledVector(offset, dist);
-    cam.position.y = Math.max(cam.position.y, 0.3);
+    cam.position.y = Math.max(cam.position.y, this.world.terrainHeight(cam.position.x, cam.position.z) + 0.35);
     cam.lookAt(t);
   }
 
@@ -234,8 +267,11 @@ export class PlayerController {
 
   /** Teletrasporta (es. rientro da un mondo, respawn). */
   teleport(pos, facing = this.facing) {
+    if (this.seat) this.seat = null;
+    this.avatar.stopEmote();
     this.position.copy(pos);
     this.velocity.set(0, 0, 0);
+    this.snapCamera = true;
     this.facing = facing;
     this.yaw = facing + Math.PI;
   }

@@ -95,6 +95,20 @@ MAT = {
     'Board': material('Board', (1, 1, 1, 1), texture=True),
     'Mirror': material('Mirror', (0.8, 0.8, 0.85, 1), rough=0.0, metal=1.0),
     'GemGreen': material('GemGreen', (0.6, 1.0, 0.6, 1), emissive=(0.35, 1.0, 0.45, 3.0), rough=0.1),
+    'Terrain': material('Terrain', (1, 1, 1, 1), rough=0.95),
+    'Dark': material('Dark', (0.08, 0.06, 0.12, 1), rough=0.4),
+    'Sidewalk': material('Sidewalk', (0.55, 0.52, 0.62, 1), rough=0.8),
+    'Building': material('Building', (0.16, 0.13, 0.24, 1), rough=0.5, metal=0.2),
+    'WinCyan': material('WinCyan', (0.5, 0.95, 1.0, 1), emissive=(0.4, 0.9, 1.0, 2.2)),
+    'WinPink': material('WinPink', (1.0, 0.55, 0.85, 1), emissive=(1.0, 0.45, 0.8, 2.2)),
+    'WinAmber': material('WinAmber', (1.0, 0.8, 0.45, 1), emissive=(1.0, 0.7, 0.3, 2.2)),
+    'Screen': material('Screen', (1, 1, 1, 1), texture=True),
+    'WoodDark': material('WoodDark', (0.4, 0.26, 0.18, 1), rough=0.8),
+    'Canvas': material('Canvas', (1, 1, 1, 1), rough=0.9),
+    'Lacquer': material('Lacquer', (0.75, 0.15, 0.18, 1), rough=0.4),
+    'Roof': material('Roof', (0.18, 0.42, 0.45, 1), rough=0.6),
+    'Mushroom': material('Mushroom', (0.9, 0.2, 0.25, 1), rough=0.6),
+    'LeavesAutumn': material('LeavesAutumn', (1.0, 0.55, 0.2, 1), rough=0.8),
 }
 PORTAL_MATS = []
 for wid, col in zip(WORLDS, WORLD_COLORS):
@@ -203,29 +217,6 @@ def disc(name, r_in, r_out, rings, segs, mat, z=0.0, jitter=0.0):
 
 # ------------------------------------------------------------------ isola
 def build_island():
-    grass = static(disc('Grass', PLAZA_R - 0.3, ISLAND_R, 18, 160, MAT['Grass'], z=0.0, jitter=0.4))
-    # bordo erboso arrotondato e scogliera
-    prof = [(ISLAND_R + 0.4, 0.0), (ISLAND_R + 0.6, -0.25), (ISLAND_R + 0.3, -0.7)]
-    lip = lathe('GrassLip', prof, MAT['Grass'], segs=160)
-    static(lip)
-    profile = [(ISLAND_R + 0.3, -0.7), (ISLAND_R - 0.5, -2.5), (ISLAND_R - 5, -6), (40, -11), (30, -17),
-               (19, -24), (10, -31), (3, -37), (0.2, -40)]
-    cliff = lathe('Cliff', profile, MAT['Rock'], segs=96, smooth=False)
-    for v in cliff.data.vertices:
-        if v.co.z < -1.2:
-            p = v.co * 0.18
-            d = noise.noise(p) * 2.6 + noise.noise(p * 3.1) * 1.0
-            h = Vector((v.co.x, v.co.y, 0)).normalized()
-            v.co += h * d
-            v.co.z += noise.noise(p * 2 + Vector((5, 5, 5))) * 1.2
-    cliff.data.update()
-    # fasce di colore della roccia (strati)
-    col = cliff.data.color_attributes.new('Tint', 'FLOAT_COLOR', 'POINT')
-    for i, v in enumerate(cliff.data.vertices):
-        band = 0.5 + 0.5 * math.sin(v.co.z * 0.9 + noise.noise(v.co * 0.1) * 2)
-        t = 0.8 + band * 0.25
-        col.data[i].color = (t, t * 0.95, t * 1.05, 1)
-
     # piazza a lastre concentriche
     grout = disc('Grout', 0, PLAZA_R, 1, 128, MAT['Grout'], z=0.005)
     static(grout)
@@ -310,7 +301,7 @@ def build_island():
     count = 0
     while count < 700:
         a = rng.random() * 2 * PI
-        d = PLAZA_R + 1.2 + rng.random() * (ISLAND_R - PLAZA_R - 2.5)
+        d = PLAZA_R + 1.2 + rng.random() * (ISLAND_R - PLAZA_R - 3.5)
         if any(abs(math.atan2(math.sin(a - portal_angle(i)), math.cos(a - portal_angle(i)))) * d < 2.2 for i in range(6)):
             continue
         x, y = math.cos(a) * d, math.sin(a) * d
@@ -331,34 +322,6 @@ def build_island():
         col.data[i].color = (*c, 1)
     bm.free()
 
-    # ringhiera
-    rail_objs = []
-    n = 120
-    for i in range(n):
-        a = 2 * PI * i / n
-        p = Vector((math.cos(a), math.sin(a), 0)) * (ISLAND_R - 1.2)
-        rail_objs.append(cylinder('post', 0.07, 0.06, 1.05, MAT['Rail'], segs=8, center=p))
-    for z, r, m in ((1.02, 0.055, MAT['Rail']), (0.6, 0.03, MAT['GlowPink'])):
-        cu = bpy.data.curves.new('rail', 'CURVE')
-        cu.dimensions = '3D'
-        cu.bevel_depth = r
-        cu.bevel_resolution = 2
-        sp = cu.splines.new('POLY')
-        pts = 240
-        sp.points.add(pts - 1)
-        for i in range(pts):
-            a = 2 * PI * i / pts
-            sp.points[i].co = (math.cos(a) * (ISLAND_R - 1.2), math.sin(a) * (ISLAND_R - 1.2), z, 1)
-        sp.use_cyclic_u = True
-        o = bpy.data.objects.new('rail', cu)
-        link(o)
-        me = bpy.data.meshes.new_from_object(o.evaluated_get(bpy.context.evaluated_depsgraph_get()))
-        bpy.data.objects.remove(o)
-        ro = bpy.data.objects.new('rail', me)
-        link(ro)
-        set_material(ro, m)
-        rail_objs.append(ro)
-    static(join(rail_objs, 'Railing'))
 
 
 # ------------------------------------------------------------------ fontana
@@ -602,7 +565,7 @@ def build_benches():
 
 
 # ------------------------------------------------------------------ alberi
-def tree(kind, scale, seed):
+def tree(kind, scale, seed, light=False):
     r = random.Random(seed)
     parts = []
     h = (1.8 if kind == 'pine' else 2.4) * scale
@@ -624,7 +587,7 @@ def tree(kind, scale, seed):
             bmesh.ops.translate(bm, vec=top + Vector((0, 0, k * 0.85 * scale + 0.3 * scale)), verts=bm.verts)
             parts.append(mesh_object('pine', bm, MAT['LeavesPine'], smooth=True))
     else:
-        mat = MAT['LeavesPink'] if kind == 'sakura' else MAT['LeavesGreen']
+        mat = {'sakura': MAT['LeavesPink'], 'autumn': MAT['LeavesAutumn']}.get(kind, MAT['LeavesGreen'])
         n = 7 if kind == 'sakura' else 6
         for k in range(n):
             if k:
@@ -753,10 +716,10 @@ def build_far_islands():
     r = random.Random(21)
     for k in range(10):
         a = r.random() * 2 * PI
-        d = 80 + r.random() * 100
+        d = 235 + r.random() * 110
         s = 3 + r.random() * 7
         isle = rock_island(f'FarIsland_{k}', s, s * 1.9, k + 60)
-        place(isle, math.sin(a) * d, -6 + r.random() * 28, math.cos(a) * d, r.random() * 6)
+        place(isle, math.sin(a) * d, -4 + r.random() * 40, math.cos(a) * d, r.random() * 6)
         if s > 5:
             t = tree(['sakura', 'round', 'pine'][k % 3], s * 0.14 + 0.7, 200 + k)
             t.parent = isle
@@ -802,6 +765,27 @@ build_parkour()
 build_far_islands()
 build_welcome()
 
+# ------------------------------------------------------------------ mondo grande
+from world_districts import World, BOUNDS, PLAZA_FLAT, WORLD_R  # noqa: E402
+
+world = World({
+    'G': G, 'place': place, 'box': box, 'cylinder': cylinder, 'lathe': lathe, 'blob': blob, 'disc': disc,
+    'mesh_object': mesh_object, 'join': join, 'static': static, 'collider': collider, 'platform': platform,
+    'add_bench': add_bench, 'bench_mesh': bench_mesh, 'curve_strand': curve_strand, 'set_material': set_material,
+    'apply_modifiers': apply_modifiers, 'tree': tree, 'MAT': MAT, 'LAYOUT': LAYOUT,
+})
+world.build_terrain()
+world.build_city()
+world.build_lake()
+world.build_forest()
+world.build_hill()
+world.build_stage()
+world.build_meadow()
+world.scatter_countryside()
+world.pad('Piazza Centrale', 7.5, 19.0, y=0.0, facing=PI)
+SOURCES = world.build_instance_sources()
+world.export_instances()
+
 
 # ------------------------------------------------------------------ occlusione ambientale cotta
 def bake_ao(objs):
@@ -843,8 +827,24 @@ def bake_ao(objs):
 
 
 # applica trasformazioni agli oggetti statici così l'AO li "vede" nel posto giusto
+for k, o in enumerate(SOURCES.values()):  # lontano da tutto: AO solo su se stessi
+    o.location = (k * 20, 0, -900)
+bpy.context.view_layer.update()
+bake_ao(list(SOURCES.values()))
+temps = []
+for kind in ('pine', 'round', 'sakura', 'autumn', 'rock', 'bush', 'palm'):
+    src = SOURCES[kind]
+    for x, y, z, rot, sc in LAYOUT['instances'].get(kind, []):
+        t = bpy.data.objects.new('tmp', src.data)
+        link(t)
+        t.location = G(x, y, z)
+        t.rotation_euler = (0, 0, rot)
+        t.scale = (sc, sc, sc)
+        temps.append(t)
 bpy.context.view_layer.update()
 bake_ao(STATIC)
+for t in temps:
+    bpy.data.objects.remove(t)
 # le tinte non cotte (scogliera, fiori) diventano il colore finale
 for o in bpy.context.scene.objects:
     if o.type == 'MESH' and 'Tint' in o.data.color_attributes and 'Col' not in o.data.color_attributes:
@@ -859,9 +859,10 @@ for o in bpy.context.scene.objects:
 print('TRIANGOLI TOTALI', total)
 
 LAYOUT['spawn'] = [0, 0, 15]
-LAYOUT['bounds'] = ISLAND_R - 2
+LAYOUT['bounds'] = BOUNDS
 LAYOUT['plazaRadius'] = PLAZA_R
-LAYOUT['islandRadius'] = ISLAND_R
+LAYOUT['islandRadius'] = PLAZA_FLAT
+LAYOUT['worldRadius'] = WORLD_R
 os.makedirs(OUT_DIR, exist_ok=True)
 with open(os.path.join(OUT_DIR, 'hub.json'), 'w') as fh:
     json.dump(LAYOUT, fh, indent=1)

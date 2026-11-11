@@ -44,7 +44,13 @@ export class Hub {
 
     // dati di gioco dal layout di Blender
     this.colliders = layout.colliders.map(([x, z, r]) => ({ x, z, r }));
+    this.boxColliders = (layout.boxColliders || []).map(([x, z, hw, hd, rot]) => ({ x, z, hw, hd, rot, c: Math.cos(rot), s: Math.sin(rot) }));
     this.platforms = layout.platforms.map(([x, z, r, top]) => ({ x, z, r, top }));
+    this.boxPlatforms = (layout.boxPlatforms || []).map(([x, z, hw, hd, rot, top]) => ({ x, z, hw, hd, rot, top, c: Math.cos(rot), s: Math.sin(rot) }));
+    this.zones = layout.zones || [];
+    this.destinations = (layout.destinations || []).map((d) => ({ name: d.name, pos: new THREE.Vector3(...d.pos), facing: d.facing }));
+    this.decodeTerrain(layout.terrain);
+    this.buildCollisionGrid();
     this.bounds = layout.bounds;
     this.spawn = new THREE.Vector3(...layout.spawn);
     this.seats = layout.seats.map((s) => ({ position: new THREE.Vector3(...s.position), facing: s.facing }));
@@ -60,12 +66,12 @@ export class Hub {
         radius: it.radius,
         type: it.type,
         label: it.label,
-        data: it.type === 'sit' ? this.seats[it.seat] : null,
+        data: it.type === 'sit' ? this.seats[it.seat] : it.type === 'teleport' ? this.destinations : null,
       })),
     ];
 
     scene.background = new THREE.Color(0xe7a0b0);
-    scene.fog = new THREE.Fog(0xc993b8, 90, 520);
+    scene.fog = new THREE.Fog(0xc993b8, 110, 640);
 
     this.buildLights();
     this.buildSky();
@@ -74,6 +80,7 @@ export class Hub {
     this.setupWorld(gltf.scene);
     this.buildGrass();
     this.buildFountainFx();
+    this.buildCampfire();
     this.buildMirror();
     this.buildGem();
     this.buildParticles();
@@ -250,7 +257,9 @@ export class Hub {
   setupWorld(root) {
     this.group.add(root);
     const waterMat = this.waterMaterial();
+    const instanceSources = [];
     root.traverse((o) => {
+      if (o.name.startsWith('Inst_') && !o.isMesh) instanceSources.push(o);
       if (!o.isMesh) return;
       const name = o.name;
       const mat = o.material;
@@ -264,9 +273,39 @@ export class Hub {
         mat.side = THREE.FrontSide;
       }
       if (mat.name === 'Flower') mat.side = THREE.DoubleSide;
+      if (name.startsWith('Water_lake')) {
+        o.material = this.lakeMaterial();
+        o.receiveShadow = false;
+        return;
+      }
       if (mat.name === 'Water') {
         o.material = waterMat;
         return;
+      }
+      if (name.startsWith('Inst_') || o.parent?.name.startsWith('Inst_')) {
+        if (!o.parent?.name.startsWith('Inst_')) instanceSources.push(o);
+        return;
+      }
+      if (name === 'Screen_holo') {
+        o.material = this.screenMaterial();
+        return;
+      }
+      if (name.startsWith('Board_neon_')) {
+        const k = Number(name.slice(11));
+        const tex = neonSign((this.layout.signs || [])[k] || 'OASIS', k);
+        tex.flipY = false;
+        o.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
+        return;
+      }
+      if (name.startsWith('Boat_')) {
+        const y0 = o.position.y;
+        const ph = Number(name.slice(5)) * 1.7;
+        const ry = o.rotation.y;
+        this.animated.push((dt, t) => {
+          o.position.y = y0 + Math.sin(t * 1.3 + ph) * 0.06;
+          o.rotation.z = Math.sin(t * 0.9 + ph) * 0.04;
+          o.rotation.y = ry + Math.sin(t * 0.2 + ph) * 0.15;
+        });
       }
       if (name.startsWith('Portal_')) {
         const id = name.slice(7);
@@ -288,10 +327,13 @@ export class Hub {
         this.crystal = o;
         return;
       }
-      const big = name === 'Grass' || name === 'Tiles' || name === 'Grout' || name === 'Cliff' || name === 'GrassLip' || name === 'Path';
+      if (o.parent && o.parent.name.startsWith('Inst_')) return; // parti di una sorgente di istanze
+      const big = name === 'Terrain' || name === 'Tiles' || name === 'Grout' || name === 'Cliff' || name === 'Path' || name === 'CitySidewalks';
       o.castShadow = !big && !name.startsWith('FarIsland');
       o.receiveShadow = !name.startsWith('FarIsland');
     });
+
+    this.buildInstances(instanceSources);
 
     // cristallo con anelli
     if (this.crystal) {
@@ -387,66 +429,311 @@ export class Hub {
     return mat;
   }
 
-  // ------------------------------------------------------------- erba al vento
+  // ------------------------------------------------------------- terreno e collisioni
+  decodeTerrain(t) {
+    const bin = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const hb = bin(t.heights);
+    this.terrain = {
+      n: t.n,
+      step: t.step,
+      origin: t.origin,
+      heights: new Int16Array(hb.buffer, hb.byteOffset, hb.byteLength / 2),
+      grass: bin(t.grass),
+    };
+  }
+
+  /** Altezza del terreno (interpolazione bilineare della mappa di Blender). */
+  terrainHeight(x, z) {
+    const { n, step, origin, heights } = this.terrain;
+    const fx = Math.min(Math.max((x - origin) / step, 0), n - 1.001);
+    const fz = Math.min(Math.max((z - origin) / step, 0), n - 1.001);
+    const i = Math.floor(fx);
+    const j = Math.floor(fz);
+    const u = fx - i;
+    const v = fz - j;
+    const h = (a, b) => heights[b * n + a] / 100;
+    return (h(i, j) * (1 - u) + h(i + 1, j) * u) * (1 - v) + (h(i, j + 1) * (1 - u) + h(i + 1, j + 1) * u) * v;
+  }
+
+  buildCollisionGrid() {
+    const CELL = 16;
+    this.cell = CELL;
+    this.grid = new Map();
+    const add = (minX, maxX, minZ, maxZ, item) => {
+      for (let gx = Math.floor(minX / CELL); gx <= Math.floor(maxX / CELL); gx++) {
+        for (let gz = Math.floor(minZ / CELL); gz <= Math.floor(maxZ / CELL); gz++) {
+          const k = gx * 10007 + gz;
+          if (!this.grid.has(k)) this.grid.set(k, []);
+          this.grid.get(k).push(item);
+        }
+      }
+    };
+    for (const c of this.colliders) add(c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r, c);
+    for (const b of this.boxColliders) {
+      const r = Math.hypot(b.hw, b.hd);
+      add(b.x - r, b.x + r, b.z - r, b.z + r, { box: b });
+    }
+    for (const p of this.platforms) add(p.x - p.r, p.x + p.r, p.z - p.r, p.z + p.r, { plat: p });
+    for (const b of this.boxPlatforms) {
+      const r = Math.hypot(b.hw, b.hd);
+      add(b.x - r, b.x + r, b.z - r, b.z + r, { bplat: b });
+    }
+  }
+
+  /** Oggetti di collisione vicini a (x, z). */
+  nearby(x, z) {
+    const out = [];
+    const gx = Math.floor(x / this.cell);
+    const gz = Math.floor(z / this.cell);
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        const list = this.grid.get((gx + i) * 10007 + gz + j);
+        if (list) for (const it of list) if (!out.includes(it)) out.push(it);
+      }
+    }
+    return out;
+  }
+
+  zoneAt(x, z) {
+    let best = null;
+    let bd = Infinity;
+    for (const zn of this.zones) {
+      const d = Math.hypot(x - zn.x, z - zn.z);
+      if (d < zn.r && d / zn.r < bd) {
+        bd = d / zn.r;
+        best = zn.name;
+      }
+    }
+    return best || 'Campagna di Oasis';
+  }
+
+  // ------------------------------------------------------------- istanze (alberi, rocce, fiori...)
+  buildInstances(sources) {
+    const data = this.layout.instances || {};
+    const CHUNK = 128;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const sc = new THREE.Vector3();
+    const p = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    this.instanceChunks = [];
+    for (const src of sources) {
+      const kind = src.name.slice(5);
+      const list = data[kind];
+      src.visible = false;
+      if (!list || !list.length) continue;
+      // parti del modello (relative alla radice della sorgente)
+      const parts = [];
+      src.updateMatrixWorld(true);
+      const inv = new THREE.Matrix4().copy(src.matrixWorld).invert();
+      src.traverse((o) => {
+        if (o.isMesh) parts.push({ mesh: o, local: new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld) });
+      });
+      const chunks = new Map();
+      for (const it of list) {
+        const key = `${Math.floor(it[0] / CHUNK)},${Math.floor(it[2] / CHUNK)}`;
+        if (!chunks.has(key)) chunks.set(key, []);
+        chunks.get(key).push(it);
+      }
+      for (const items of chunks.values()) {
+        for (const part of parts) {
+          const mat = part.mesh.material;
+          if (part.mesh.geometry.attributes.color) mat.vertexColors = true;
+          const im = new THREE.InstancedMesh(part.mesh.geometry, mat, items.length);
+          items.forEach(([x, y, z, rot, s], i) => {
+            m.compose(p.set(x, y, z), q.setFromAxisAngle(up, rot), sc.set(s, s, s)).multiply(part.local);
+            im.setMatrixAt(i, m);
+          });
+          im.computeBoundingSphere();
+          im.castShadow = kind !== 'flowers';
+          im.receiveShadow = true;
+          this.group.add(im);
+          this.instanceChunks.push(im);
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- erba al vento (segue il giocatore)
   buildGrass() {
-    const { plazaRadius, islandRadius } = this.layout;
-    const blade = new THREE.BufferGeometry();
-    // filo d'erba: 5 vertici, leggermente curvo
+    const t = this.terrain;
+    // texture con altezze e quantità d'erba, lette dallo shader
+    const n = t.n;
+    const hdata = new Uint16Array(n * n);
+    for (let i = 0; i < n * n; i++) hdata[i] = THREE.DataUtils.toHalfFloat(t.heights[i] / 100);
+    const hTex = new THREE.DataTexture(hdata, n, n, THREE.RedFormat, THREE.HalfFloatType);
+    hTex.magFilter = hTex.minFilter = THREE.LinearFilter;
+    hTex.needsUpdate = true;
+    const gTex = new THREE.DataTexture(t.grass, n, n, THREE.RedFormat, THREE.UnsignedByteType);
+    gTex.magFilter = gTex.minFilter = THREE.LinearFilter;
+    gTex.needsUpdate = true;
+
+    const mobile = matchMedia('(pointer: coarse)').matches;
+    const N = mobile ? 16000 : 30000;
+    const TILE = 64;
+    const blade = new THREE.InstancedBufferGeometry();
     const w = 0.06;
-    const h = 0.32;
+    const h = 0.34;
     blade.setAttribute('position', new THREE.Float32BufferAttribute([-w, 0, 0, w, 0, 0, -w * 0.6, h * 0.5, 0.02, w * 0.6, h * 0.5, 0.02, 0, h, 0.06], 3));
     blade.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0.3, 1, 0, 0.3, 1, 0, 0.5, 1, 0, 0.5, 1, 0, 0.8, 0.6], 3));
     blade.setAttribute('h', new THREE.Float32BufferAttribute([0, 0, 0.5, 0.5, 1], 1));
     blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
-
-    const mobile = matchMedia('(pointer: coarse)').matches;
-    const N = mobile ? 14000 : 26000;
-    const mesh = new THREE.InstancedMesh(blade, null, N);
+    const off = new Float32Array(N * 4);
     const r = rng(77);
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    const s = new THREE.Vector3();
-    const p = new THREE.Vector3();
-    const col = new THREE.Color();
-    const angles = this.portals.map((pt) => Math.atan2(pt.position.x, pt.position.z));
-    let n = 0;
-    while (n < N) {
-      const a = r() * Math.PI * 2;
-      const d = plazaRadius + 0.9 + Math.sqrt(r()) * (islandRadius - plazaRadius - 2.6);
-      if (angles.some((pa) => Math.abs(Math.atan2(Math.sin(a - pa), Math.cos(a - pa))) * d < 1.8 && d < 35.5)) continue;
-      p.set(Math.sin(a) * d, 0, Math.cos(a) * d);
-      q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, r() * Math.PI * 2);
-      const k = 0.6 + r() * 0.9;
-      s.set(k, k * (0.7 + r() * 0.8), k);
-      m.compose(p, q, s);
-      mesh.setMatrixAt(n, m);
-      col.setHSL(0.27 + r() * 0.07, 0.45 + r() * 0.2, 0.32 + r() * 0.14);
-      mesh.setColorAt(n, col);
-      n++;
-    }
+    for (let i = 0; i < N; i++) off.set([(r() - 0.5) * TILE, (r() - 0.5) * TILE, r() * Math.PI * 2, r()], i * 4);
+    blade.setAttribute('aOff', new THREE.InstancedBufferAttribute(off, 4));
+    blade.instanceCount = N;
+
+    const uni = {
+      uTime: { value: 0 },
+      uCenter: { value: new THREE.Vector2() },
+      uHeight: { value: hTex },
+      uGrass: { value: gTex },
+      uMap: { value: new THREE.Vector3(t.origin, t.step * (n - 1), TILE) },
+    };
+    this.grassUniforms = uni;
     const mat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
-    const uTime = { value: 0 };
     mat.onBeforeCompile = (shader) => {
-      shader.uniforms.uTime = uTime;
+      Object.assign(shader.uniforms, uni);
       shader.vertexShader = shader.vertexShader
-        .replace('void main() {', 'attribute float h;\nuniform float uTime;\nvarying float vH;\nvoid main() {\n vH = h;')
+        .replace(
+          'void main() {',
+          `attribute float h; attribute vec4 aOff;
+           uniform float uTime; uniform vec2 uCenter; uniform sampler2D uHeight; uniform sampler2D uGrass; uniform vec3 uMap;
+           varying float vH; varying float vR;
+           void main() {
+             vH = h; vR = aOff.w;`,
+        )
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-           vec3 wp = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-           float wind = sin(uTime * 1.7 + wp.x * 0.35 + wp.z * 0.22) * 0.5 + sin(uTime * 3.1 + wp.x * 1.3) * 0.15;
-           transformed.x += wind * h * h * 0.14;
-           transformed.z += wind * h * h * 0.08;`,
+           float T = uMap.z;
+           vec2 wp = uCenter + mod(aOff.xy - uCenter + 0.5 * T, T) - 0.5 * T;
+           vec2 uv = (wp - uMap.x) / uMap.y;
+           float g = texture2D(uGrass, uv).r;
+           float edge = 1.0 - smoothstep(T * 0.32, T * 0.5, length(wp - uCenter));
+           float s = step(aOff.w * 0.85 + 0.1, g) * edge * (0.7 + aOff.w * 0.8);
+           float c = cos(aOff.z), sn = sin(aOff.z);
+           transformed = vec3(c * transformed.x + sn * transformed.z, transformed.y, -sn * transformed.x + c * transformed.z) * s;
+           float wind = sin(uTime * 1.7 + wp.x * 0.35 + wp.y * 0.22) * 0.5 + sin(uTime * 3.1 + wp.x * 1.3) * 0.15;
+           transformed.x += wind * h * h * 0.14 * s;
+           transformed.z += wind * h * h * 0.08 * s;
+           transformed += vec3(wp.x, texture2D(uHeight, uv).r, wp.y);`,
         );
       shader.fragmentShader = shader.fragmentShader
-        .replace('void main() {', 'varying float vH;\nvoid main() {')
-        .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= mix(0.45, 1.25, vH);');
+        .replace('void main() {', 'varying float vH; varying float vR;\nvoid main() {')
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+           vec3 gcol = mix(vec3(0.16, 0.36, 0.12), vec3(0.42, 0.62, 0.2), vR);
+           diffuseColor.rgb = gcol * mix(0.45, 1.25, vH);`,
+        );
     };
-    mesh.material = mat;
-    mesh.receiveShadow = true;
+    const mesh = new THREE.Mesh(blade, mat);
     mesh.frustumCulled = false;
+    mesh.receiveShadow = true;
     this.group.add(mesh);
-    this.animated.push((dt, t) => (uTime.value = t));
+    this.animated.push((dt, time) => (uni.uTime.value = time));
+  }
+
+  lakeMaterial() {
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      fog: true,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uSun: { value: SUN_DIR } }]),
+      vertexShader: /* glsl */ `
+        varying vec3 vW;
+        #include <fog_pars_vertex>
+        void main(){
+          vW = (modelMatrix * vec4(position, 1.0)).xyz;
+          vec4 mvPosition = viewMatrix * vec4(vW, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */ `
+        varying vec3 vW; uniform float uTime; uniform vec3 uSun;
+        #include <fog_pars_fragment>
+        ${NOISE_GLSL}
+        void main(){
+          vec2 p = vW.xz;
+          float n1 = noise(p * 0.35 + vec2(uTime * 0.25, uTime * 0.1));
+          float n2 = noise(p * 1.1 - vec2(uTime * 0.4, -uTime * 0.2));
+          vec3 nrm = normalize(vec3((n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.3, 1.0, (n2 - 0.5) * 0.5));
+          vec3 v = normalize(cameraPosition - vW);
+          float fres = pow(1.0 - max(dot(v, nrm), 0.0), 3.0);
+          vec3 deep = vec3(0.12, 0.38, 0.62);
+          vec3 sky = vec3(0.85, 0.62, 0.8);
+          vec3 col = mix(deep, sky, 0.25 + fres * 0.6);
+          float spec = pow(max(dot(reflect(-uSun, nrm), v), 0.0), 120.0);
+          col += vec3(1.0, 0.85, 0.65) * spec * 1.5;
+          col += step(0.985, noise(p * 3.0 + uTime)) * 0.25;
+          gl_FragColor = vec4(col, 0.88);
+          #include <colorspace_fragment>
+          #include <fog_fragment>
+        }`,
+    });
+    this.animated.push((dt, t) => (mat.uniforms.uTime.value = t));
+    return mat;
+  }
+
+  screenMaterial() {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      toneMapped: false,
+      side: THREE.DoubleSide,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} ',
+      fragmentShader: /* glsl */ `
+        varying vec2 vUv; uniform float uTime;
+        ${NOISE_GLSL}
+        void main(){
+          vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+          float t = uTime * 0.4;
+          vec3 a = vec3(0.25, 0.9, 1.0), b = vec3(1.0, 0.3, 0.85), c = vec3(0.55, 0.3, 1.0);
+          float wave = sin(uv.x * 6.0 + t * 2.0) * 0.5 + 0.5;
+          vec3 col = mix(mix(c, a, wave), b, fbm(uv * 3.0 + t) * 0.8);
+          float bars = step(0.5, fract(uv.x * 24.0)) * step(uv.y, 0.25 + 0.6 * noise(vec2(floor(uv.x * 24.0), t * 3.0)));
+          col = mix(col * 0.35, col, bars * 0.6 + 0.4);
+          float ring = abs(length((uv - vec2(0.5, 0.42)) * vec2(1.6, 1.0)) - 0.18 - 0.02 * sin(t * 4.0));
+          col += vec3(1.0) * smoothstep(0.02, 0.0, ring);
+          col *= 0.85 + 0.15 * sin(uv.y * 400.0);
+          gl_FragColor = vec4(col, 1.0);
+          #include <colorspace_fragment>
+        }`,
+    });
+    this.animated.push((dt, t) => (mat.uniforms.uTime.value = t));
+    return mat;
+  }
+
+  buildCampfire() {
+    const pos = this.layout.campfire;
+    if (!pos) return;
+    const light = new THREE.PointLight(0xff9a40, 30, 16, 1.6);
+    light.position.set(pos[0], pos[1] + 0.6, pos[2]);
+    this.group.add(light);
+    const N = 70;
+    const arr = new Float32Array(N * 3);
+    const seeds = Array.from({ length: N }, rng(11));
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    const flames = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({ color: 0xffa040, size: 0.35, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    flames.frustumCulled = false;
+    this.group.add(flames);
+    this.animated.push((dt, t) => {
+      for (let i = 0; i < N; i++) {
+        const s = seeds[i];
+        const life = (t * 0.9 + s) % 1;
+        const a = s * 40;
+        const r = 0.35 * (1 - life);
+        arr[i * 3] = pos[0] + Math.cos(a) * r;
+        arr[i * 3 + 1] = pos[1] + life * 1.4;
+        arr[i * 3 + 2] = pos[2] + Math.sin(a) * r;
+      }
+      geo.attributes.position.needsUpdate = true;
+      light.intensity = 26 + Math.sin(t * 13) * 4 + Math.sin(t * 7.3) * 3;
+    });
   }
 
   // ------------------------------------------------------------- fontana: getti d'acqua
@@ -563,18 +850,30 @@ export class Hub {
   }
 
   // ------------------------------------------------------------- runtime
+  /** Altezza calpestabile sotto (x, z) partendo dall'altezza y (terreno + piattaforme). */
   groundAt(x, z, y) {
-    let ground = 0;
-    for (const p of this.platforms) {
-      const dx = x - p.x;
-      const dz = z - p.z;
-      if (dx * dx + dz * dz <= p.r * p.r && p.top <= y + 0.45 && p.top > ground) ground = p.top;
+    let ground = this.terrainHeight(x, z);
+    for (const it of this.nearby(x, z)) {
+      if (it.plat) {
+        const p = it.plat;
+        const dx = x - p.x;
+        const dz = z - p.z;
+        if (dx * dx + dz * dz <= p.r * p.r && p.top <= y + 0.45 && p.top > ground) ground = p.top;
+      } else if (it.bplat) {
+        const b = it.bplat;
+        const dx = x - b.x;
+        const dz = z - b.z;
+        const lx = dx * b.c - dz * b.s;
+        const lz = dx * b.s + dz * b.c;
+        if (Math.abs(lx) <= b.hw && Math.abs(lz) <= b.hd && b.top <= y + 0.45 && b.top > ground) ground = b.top;
+      }
     }
     return ground;
   }
 
   update(dt, time, playerPos, isXR) {
     for (const fn of this.animated) fn(dt, time);
+    this.grassUniforms?.uCenter.value.set(playerPos.x, playerPos.z);
     const near = playerPos.distanceTo(this.mirror.position) < 22;
     this.mirror.visible = this.mirrorOn && near && !isXR;
   }
@@ -630,4 +929,27 @@ function welcomeTexture() {
       ctx.fillText('•  ' + l, 70, 230 + i * 74);
     });
   });
+}
+
+function neonSign(text, k) {
+  const colors = ['#7ff0ff', '#ff7ae0', '#ffcf5a', '#9dff9a', '#b69bff'];
+  const col = colors[k % colors.length];
+  return makePanelTexture((ctx, w, h) => {
+    ctx.fillStyle = '#120a24';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 10;
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 30;
+    ctx.strokeRect(18, 18, w - 36, h - 36);
+    ctx.font = '900 150px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 40;
+    ctx.fillText(text, w / 2, h / 2 + 6, w - 90);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = col;
+    ctx.fillText(text, w / 2, h / 2 + 6, w - 90);
+  }, 1024, 276);
 }

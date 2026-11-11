@@ -17,7 +17,7 @@
       <div class="logo">OASIS</div>
       <div class="subtitle">Hub sociale</div>
       <button id="btn-start" class="btn primary">Entra nel mondo</button>
-      <p class="hint">WASD muoviti · Shift corri · Spazio salta · trascina per guardarti intorno · E interagisci · C personaggio · 1-4 emote</p>
+      <p class="hint">WASD muoviti · Shift corri · Spazio salta · trascina per guardarti intorno · E interagisci · C personaggio · M mappa · 1-4 emote</p>
     </div>
 
     <!-- HUD -->
@@ -30,6 +30,7 @@
         </div>
       </div>
       <div id="hud-buttons">
+        <button id="btn-travel" class="btn small" title="Teletrasporto (M)">🗺️ Mappa</button>
         <button id="btn-mirror" class="btn small" title="Specchio">🪞</button>
         <button id="btn-avatar" class="btn small" title="Personaggio (C)">Personaggio</button>
         <button id="btn-vr" class="btn small hidden" title="Entra in VR">VR</button>
@@ -43,6 +44,19 @@
       <div id="prompt" class="hidden"></div>
       <div id="toast" class="hidden"></div>
       <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
+    </div>
+
+    <!-- Mappa e teletrasporto -->
+    <div id="travel" class="hidden">
+      <div class="travel-card">
+        <div class="ed-head">
+          <h2>Mappa di Oasis</h2>
+          <button id="travel-close" class="btn small">Chiudi</button>
+        </div>
+        <canvas id="travel-map" width="400" height="400"></canvas>
+        <p class="travel-hint">Scegli dove andare</p>
+        <div id="travel-list"></div>
+      </div>
     </div>
 
     <!-- Controlli touch -->

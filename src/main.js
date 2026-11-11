@@ -82,7 +82,21 @@ const WorldManager = {
   },
 };
 
+function openTravel() {
+  if (engine.isXR) return;
+  input.enabled = false;
+  hud.openTravel(player.position, player.facing, (d) => {
+    player.teleport(d.pos, d.facing);
+    hud.toast(`Teletrasportato: <b>${d.name}</b>`, 2.2);
+  });
+}
+document.getElementById('travel-close').addEventListener('click', () => (input.enabled = true));
+document.getElementById('travel').addEventListener('click', () => {
+  if (!hud.travelOpen) input.enabled = !editor.isOpen;
+});
+
 function interact(it) {
+  if (it.type === 'teleport') return openTravel();
   if (it.type === 'portal') WorldManager.enter(it.data.world);
   else if (it.type === 'sit') player.sit(it.data);
   else if (it.type === 'mirror') {
@@ -108,11 +122,11 @@ function setWorldPrompt(it) {
 }
 
 let gemFound = false;
-const flat = new THREE.Vector3();
 
 engine.onUpdate((dt, t) => {
   const state = input.poll();
   if (state.avatar && !engine.isXR) editor.toggle();
+  if (state.map) openTravel();
   if (state.emote) player.emote(state.emote);
 
   player.update(dt, state);
@@ -123,10 +137,11 @@ engine.onUpdate((dt, t) => {
   let near = null;
   let best = Infinity;
   if (!player.seat) {
-    flat.set(player.position.x, 0, player.position.z);
+    const px = player.position.x;
+    const pz = player.position.z;
     for (const it of hub.interactables) {
-      const d = it.point.distanceTo(flat);
-      if (d < it.radius && d < best && Math.abs(player.position.y) < 1.5) {
+      const d = Math.hypot(it.point.x - px, it.point.z - pz);
+      if (d < it.radius && d < best && Math.abs(player.position.y - it.point.y) < 1.8) {
         best = d;
         near = it;
       }
@@ -148,6 +163,7 @@ engine.onUpdate((dt, t) => {
   }
 
   hud.drawMinimap(player.position, player.facing);
+  hud.setZone(hub.zoneAt(player.position.x, player.position.z));
 });
 
 hud.onEmote((id) => player.emote(id));
@@ -164,6 +180,7 @@ document.getElementById('btn-start').addEventListener('click', () => {
   }
 });
 document.getElementById('btn-avatar').addEventListener('click', () => editor.toggle());
+document.getElementById('btn-travel').addEventListener('click', openTravel);
 document.getElementById('btn-mirror').addEventListener('click', () => {
   hub.toggleMirror();
   hud.toast(hub.mirrorOn ? 'Specchio acceso' : 'Specchio spento', 1.5);

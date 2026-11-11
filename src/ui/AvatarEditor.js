@@ -20,7 +20,8 @@ const TABS = {
     ['topColor', 'Colore sopra', 'color'],
     ['bottom', 'Sotto', 'option'],
     ['bottomColor', 'Colore sotto', 'color'],
-    ['shoesColor', 'Scarpe', 'color'],
+    ['shoes', 'Scarpe', 'option'],
+    ['shoesColor', 'Colore scarpe', 'color'],
   ],
   Extra: [
     ['accessory', 'Accessorio', 'option'],

@@ -11,10 +11,11 @@ const OUTLINE = 0.006;
 
 // varianti presenti nel modello Blender (nome oggetto -> opzione)
 const VARIANTS = {
-  hair: ['short', 'spiky', 'bob', 'long', 'ponytail', 'twintails'].map((v) => [v, `Hair_${v}`]),
-  top: ['hoodie', 'jacket', 'tshirt'].map((v) => [v, `Top_${v}`]),
-  bottom: ['pants', 'shorts', 'skirt'].map((v) => [v, `Bottom_${v}`]),
-  accessory: ['catears', 'foxears', 'halo', 'headphones', 'glasses', 'horns'].map((v) => [v, `Acc_${v}`]),
+  hair: ['short', 'spiky', 'bob', 'long', 'ponytail', 'twintails', 'buns'].map((v) => [v, `Hair_${v}`]),
+  top: ['hoodie', 'jacket', 'tshirt', 'cyber'].map((v) => [v, `Top_${v}`]),
+  bottom: ['pants', 'shorts', 'skirt', 'cargo'].map((v) => [v, `Bottom_${v}`]),
+  shoes: ['sneakers', 'boots'].map((v) => [v, `Shoes_${v}`]),
+  accessory: ['catears', 'foxears', 'halo', 'headphones', 'glasses', 'horns', 'wings', 'visor', 'crown', 'backpack'].map((v) => [v, `Acc_${v}`]),
 };
 
 // velocità (m/s) a cui le animazioni di camminata/corsa non "scivolano"
@@ -22,8 +23,11 @@ const WALK_SPEED = 2.3;
 const RUN_SPEED = 4.6;
 const EMOTES = ['wave', 'dance', 'cheer', 'sit', 'floor'];
 
-/** Materiale toon con luce di contorno (rim light), stile avatar social VR. */
-function avatarToon(color, opts = {}) {
+/**
+ * Materiale toon con luce di contorno (rim light), stile avatar social VR.
+ * shine: riflesso "ad anello" tipico dei capelli anime.
+ */
+function avatarToon(color, opts = {}, shine = false) {
   const m = new THREE.MeshToonMaterial({ color, gradientMap: toonGradient(true), ...opts });
   m.userData.rim = { value: new THREE.Color(0xffc8e8) };
   m.onBeforeCompile = (shader) => {
@@ -34,9 +38,13 @@ function avatarToon(color, opts = {}) {
         '#include <opaque_fragment>',
         `float rimF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
          outgoingLight += uRim * rimF * 0.35;
+         ${shine ? `float hs = dot(normal, normalize(vec3(0.0, 0.75, 0.66)));
+         float band = smoothstep(0.80, 0.86, hs) * (1.0 - smoothstep(0.92, 0.97, hs));
+         outgoingLight += vec3(1.0) * band * 0.22;` : ''}
          #include <opaque_fragment>`,
       );
   };
+  m.customProgramCacheKey = () => (shine ? 'toon-shine' : 'toon');
   return m;
 }
 
@@ -63,7 +71,7 @@ export class Avatar {
 
     this.mats = {
       Skin: avatarToon(0xffffff),
-      Hair: avatarToon(0xffffff),
+      Hair: avatarToon(0xffffff, {}, true),
       Top: avatarToon(0xffffff),
       TopDark: avatarToon(0xffffff),
       Shirt: avatarToon(0xf4f2fa),
@@ -73,6 +81,8 @@ export class Avatar {
       Dark: avatarToon(0x2a2433),
       White: avatarToon(0xffffff),
       Pink: avatarToon(0xffb3c8),
+      Gold: Object.assign(avatarToon(0xffcf6a), { emissive: new THREE.Color(0x553300) }),
+      Visor: new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, shininess: 120, emissiveIntensity: 0.6, depthWrite: false }),
       Accent: new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: toonGradient(true), emissiveIntensity: 1.6 }),
     };
 
@@ -106,7 +116,7 @@ export class Avatar {
     });
     // contorni (guscio invertito) anche per i mesh con scheletro
     for (const m of meshes) {
-      if (m.material === this.faceMat || m.material === this.mats.Accent) continue;
+      if (m.material === this.faceMat || m.material === this.mats.Accent || m.material === this.mats.Visor) continue;
       const o = m.isSkinnedMesh ? new THREE.SkinnedMesh(m.geometry, outlineMaterial(OUTLINE, 0x2a1a38)) : new THREE.Mesh(m.geometry, outlineMaterial(OUTLINE, 0x2a1a38));
       if (m.isSkinnedMesh) o.bind(m.skeleton, m.bindMatrix);
       o.frustumCulled = false;
@@ -164,6 +174,8 @@ export class Avatar {
     m.Shoes.color.set(c.shoesColor);
     m.Accent.color.set(c.accent);
     m.Accent.emissive.set(c.accent);
+    m.Visor.color.set(c.accent);
+    m.Visor.emissive.set(c.accent);
 
     for (const [key, list] of Object.entries(this.variants)) {
       for (const [id, obj] of list) if (obj) obj.visible = c[key] === id;

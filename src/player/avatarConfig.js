@@ -19,6 +19,7 @@ export const OPTIONS = {
     ['long', 'Lunghi'],
     ['ponytail', 'Coda'],
     ['twintails', 'Codini'],
+    ['buns', 'Chignon'],
   ],
   eyes: [
     ['round', 'Grandi'],
@@ -29,11 +30,17 @@ export const OPTIONS = {
     ['hoodie', 'Felpa'],
     ['jacket', 'Giacca'],
     ['tshirt', 'Maglietta'],
+    ['cyber', 'Tuta cyber'],
   ],
   bottom: [
     ['pants', 'Pantaloni'],
     ['shorts', 'Shorts'],
     ['skirt', 'Gonna'],
+    ['cargo', 'Cargo'],
+  ],
+  shoes: [
+    ['sneakers', 'Sneakers'],
+    ['boots', 'Stivali'],
   ],
   accessory: [
     ['none', 'Nessuno'],
@@ -43,6 +50,10 @@ export const OPTIONS = {
     ['headphones', 'Cuffie'],
     ['glasses', 'Occhiali'],
     ['horns', 'Corna'],
+    ['wings', 'Ali'],
+    ['visor', 'Visore'],
+    ['crown', 'Corona'],
+    ['backpack', 'Zaino'],
   ],
   bodyType: [
     ['slim', 'Snello'],
@@ -62,6 +73,7 @@ export const DEFAULT_AVATAR = {
   topColor: PALETTES.topColor[4],
   bottom: 'pants',
   bottomColor: PALETTES.bottomColor[1],
+  shoes: 'sneakers',
   shoesColor: PALETTES.shoesColor[0],
   accent: PALETTES.accent[0],
   accessory: 'headphones',

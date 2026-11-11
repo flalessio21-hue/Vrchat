@@ -4,20 +4,22 @@ Prototipo di un metaverso ispirato al concetto di "Oasis": per ora **web**, pens
 un'app per **Meta Quest** (WebXR), **Android** e **iPhone** senza riscrivere il gioco.
 
 Al momento contiene:
-- **Hub sociale in stile social VR**: isola fluttuante al tramonto sopra un mare di nuvole,
-  piazza con fontana e cristallo luminoso, 6 portali ad arco con anteprima animata e pannello
-  informativo (Arena, Pianeta Musica, Circuito Neon, Accademia, Rovine Perdute, Mercato),
-  **specchio** funzionante, panchine su cui **sedersi**, alberi di ciliegio, lanterne, lucciole,
-  bacheca di benvenuto, percorso di rocce fluttuanti con un cristallo da trovare.
-- **Avatar stile anime** (originale, procedurale): shading toon con contorno, viso disegnato con
-  battito di ciglia ed espressioni, capelli a ciocche con movimento secondario, vestiti e accessori.
-  Personalizzabili: corporatura, altezza, pelle, occhi, 6 tagli di capelli, felpa/giacca/maglietta,
-  pantaloni/shorts/gonna, scarpe, orecchie da gatto/volpe con coda, aureola, cuffie, occhiali, corna,
-  luci neon. Salvato in locale.
-- **Animazioni ed emote**: idle, camminata, corsa, salto; saluto, ballo, esulta, seduto a terra.
-- **Grafica**: modelli Blender con occlusione ambientale cotta, materiali PBR con riflessi del cielo
-  (environment map), avatar con shading toon + rim light e contorno, erba animata dal vento,
-  bloom con antialiasing MSAA, ombre morbide (post-processing disattivato in VR per le prestazioni).
+- **Un'isola grande da esplorare** (circa 370 m di diametro) con terreno vero, colline, lago e scogliere
+  sul mare di nuvole, divisa in quartieri:
+  - **Piazza Centrale**: fontana con cristallo, 6 portali verso i mondi futuri, specchio, panchine
+  - **Quartiere Neon**: grattacieli illuminati, insegne, lampioni al neon, piazza con schermo olografico
+  - **Lago Cristallo**: spiaggia, pontile con panchine, barche, palme, ombrelloni e lettini
+  - **Foresta Sussurrante**: centinaia di alberi, sentiero, accampamento con falò, capanna e tenda
+  - **Collina del Vento**: tempio panoramico con campana e cannocchiale
+  - **Palco delle Stelle**: palco per concerti con luci, casse e file di sedute
+  - **Prato dell'Albero Antico**: albero gigante in mezzo ai fiori
+- **Teletrasporti** (piattaforme luminose o pulsante Mappa / tasto M) e minimappa a radar;
+  il nome del quartiere compare quando ci entri.
+- **Avatar stile anime** creato in Blender: dita, polpacci, spalle modellati; capelli a strati
+  (7 tagli), felpa con cappuccio e zip, giacca con risvolti, maglietta, tuta cyber con guanti,
+  pantaloni, cargo, shorts, gonna, sneakers o stivali, 10 accessori (orecchie, aureola, cuffie,
+  occhiali, corna, ali, visore, corona, zaino). Viso con espressioni, riflesso anime sui capelli.
+- **Animazioni ed emote**: idle, camminata, corsa, salto; saluto, ballo, esulta, seduto.
 
 ## Modelli 3D creati con Blender
 
@@ -26,7 +28,7 @@ Tutta la grafica 3D è generata **da zero con script Blender** (nessun asset sca
 | Script | Output | Contenuto |
 |---|---|---|
 | `tools/blender/avatar.py` | `public/models/avatar.glb` | avatar con scheletro (armatura), corpo modellato con Skin + Subdivision, capelli a ciocche da curve, 6 tagli, 3 sopra, 3 sotto, 6 accessori, scarpe; 9 animazioni (idle, walk, run, jump, wave, dance, cheer, sit, floor) |
-| `tools/blender/hub.py` | `public/models/hub.glb` + `hub.json` | isola, piazza a lastre, scogliera, fontana, portali ad arco, specchio, panchine, alberi, cespugli, fiori, lanterne, ringhiera, rocce del percorso, isolotti; **occlusione ambientale cotta con Cycles** nei colori dei vertici; layout di gioco (collisioni, piattaforme, sedute, portali) |
+| `tools/blender/hub.py` + `world_districts.py` | `public/models/hub.glb` + `hub.json` | terreno con colline e lago, piazza, quartieri (città, lago, foresta, collina, palco, prato), alberi/rocce/fiori come istanze; **occlusione ambientale cotta con Cycles** nei colori dei vertici; layout di gioco (mappa delle altezze, collisioni, piattaforme, sedute, portali, teletrasporti, zone) |
 
 Per rigenerarli serve Blender come modulo Python (`pip install bpy`, Python 3.13):
 
@@ -51,7 +53,7 @@ npm run build    # build statica in dist/
 
 | Dispositivo | Movimento | Camera | Salto | Interagisci | Personaggio |
 |---|---|---|---|---|---|
-| PC | WASD / frecce, Shift corri | trascina col mouse, rotella zoom | Spazio | E | C · emote 1-4 |
+| PC | WASD / frecce, Shift corri | trascina col mouse, rotella zoom | Spazio | E | C · M mappa · emote 1-4 |
 | Telefono/tablet | joystick a sinistra (spingi tutto per correre) | trascina sullo schermo | ⤒ | E | pulsante in alto |
 | Gamepad | stick sinistro | stick destro | A | X | — |
 | Meta Quest (VR) | stick sinistro | guardati intorno, stick destro = rotazione a scatti | A | trigger / X | — |

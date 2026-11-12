@@ -15,10 +15,10 @@ const LEG_DROP = 0.86 * (1 - LEG_SCALE);
 // varianti presenti nel modello Blender (nome oggetto -> opzione)
 const VARIANTS = {
   hair: ['short', 'spiky', 'bob', 'long', 'ponytail', 'twintails', 'buns'].map((v) => [v, `Hair_${v}`]),
-  top: ['hoodie', 'jacket', 'tshirt', 'cyber'].map((v) => [v, `Top_${v}`]),
-  bottom: ['pants', 'shorts', 'skirt', 'cargo'].map((v) => [v, `Bottom_${v}`]),
+  top: ['hoodie', 'jacket', 'tshirt', 'cyber', 'space'].map((v) => [v, `Top_${v}`]),
+  bottom: ['pants', 'shorts', 'skirt', 'cargo', 'space'].map((v) => [v, `Bottom_${v}`]),
   shoes: ['sneakers', 'boots'].map((v) => [v, `Shoes_${v}`]),
-  accessory: ['catears', 'foxears', 'halo', 'headphones', 'glasses', 'horns', 'wings', 'visor', 'crown', 'backpack'].map((v) => [v, `Acc_${v}`]),
+  accessory: ['catears', 'foxears', 'halo', 'headphones', 'glasses', 'horns', 'wings', 'visor', 'crown', 'backpack', 'helmet'].map((v) => [v, `Acc_${v}`]),
 };
 
 // velocità (m/s) a cui le animazioni di camminata/corsa non "scivolano"
@@ -185,6 +185,8 @@ export class Avatar {
     for (const [key, list] of Object.entries(this.variants)) {
       for (const [id, obj] of list) if (obj) obj.visible = c[key] === id;
     }
+    // il casco spaziale copre i capelli
+    if (c.accessory === 'helmet') for (const [, obj] of this.variants.hair) if (obj) obj.visible = false;
     // la giacca è aperta: serve vedere anche l'interno
     const jacket = this.model.getObjectByName('Top_jacket');
     jacket?.traverse((o) => {

@@ -157,6 +157,20 @@ document.getElementById('travel').addEventListener('click', () => {
 function interact(it) {
   if (it.type === 'teleport') return openTravel();
   if (it.type === 'shop') return openShop(it.data);
+  if (it.type === 'screen') {
+    if (it.data === 'explore') return openTravel();
+    if (it.data === 'create') return editor.open();
+    if (it.data === 'play') {
+      hud.toast('🎮 I <b>portali</b> ad arco intorno alla piazza portano ai mondi di gioco.<br><small>Arena, Pianeta Musica, Circuito Neon e altri: in arrivo!</small>', 4);
+      return;
+    }
+    if (it.data === 'social') {
+      const n = npcs.list.filter((x) => x.av.root.visible).length;
+      avatar.playEmote('wave');
+      hud.toast(`👥 Ci sono <b>${n}</b> persone qui vicino. Saluta con 1, balla con 2!`, 3);
+      return;
+    }
+  }
   if (it.type === 'portal') WorldManager.enter(it.data.world);
   else if (it.type === 'sit') player.sit(it.data);
   else if (it.type === 'mirror') {

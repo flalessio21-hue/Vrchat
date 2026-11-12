@@ -122,6 +122,15 @@ MAT = {
     'Bamboo': material('Bamboo', (0.55, 0.75, 0.3, 1), rough=0.6),
     'BannerBlue': material('BannerBlue', (0.2, 0.35, 0.85, 1), rough=0.8),
     'BannerRed': material('BannerRed', (0.85, 0.15, 0.2, 1), rough=0.8),
+    # atrio fantascientifico della piazza
+    'LobbyFloor': material('LobbyFloor', (0.16, 0.16, 0.2, 1), rough=0.22, metal=0.15),
+    'Hull': material('Hull', (0.62, 0.64, 0.7, 1), rough=0.38, metal=0.55),
+    'ArchGlow': material('ArchGlow', (0.5, 0.9, 1.0, 1), emissive=(0.4, 0.85, 1.0, 0.9)),
+    'HullDark': material('HullDark', (0.1, 0.1, 0.14, 1), rough=0.35, metal=0.5),
+    'Foliage': material('Foliage', (0.12, 0.42, 0.22, 1), rough=0.6),
+    'OrbLamp': material('OrbLamp', (1.0, 0.85, 0.6, 1), emissive=(1.0, 0.7, 0.4, 1.6)),
+    'Waterfall': material('Waterfall', (0.7, 0.9, 1.0, 1), texture=True),
+    'LogoScreen': material('LogoScreen', (1, 1, 1, 1), texture=True),
 }
 PORTAL_MATS = []
 for wid, col in zip(WORLDS, WORLD_COLORS):
@@ -231,7 +240,7 @@ def disc(name, r_in, r_out, rings, segs, mat, z=0.0, jitter=0.0):
 # ------------------------------------------------------------------ isola
 def build_island():
     # piazza a lastre concentriche
-    grout = disc('Grout', 0, PLAZA_R, 1, 128, MAT['Grout'], z=0.005)
+    grout = disc('Grout', 0, PLAZA_R, 1, 128, MAT['HullDark'], z=0.005)
     static(grout)
     bm = bmesh.new()
     tint = []
@@ -262,13 +271,13 @@ def build_island():
                 k2 = (k + 1) % 4
                 bm.faces.new([vm[k], vm[k2], vt[k2], vt[k]])
                 bm.faces.new([vb[k], vb[k2], vm[k2], vm[k]])
-            shade = 0.86 + rng.random() * 0.2
-            warm = rng.random() * 0.06
-            tint.append((shade + warm, shade, shade - warm * 0.5))
+            shade = 0.85 + rng.random() * 0.3
+            cool = rng.random() * 0.05
+            tint.append((shade - cool, shade, shade + cool))
         r += w
         ring += 1
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    tiles = mesh_object('Tiles', bm, MAT['Tiles'], smooth=False)
+    tiles = mesh_object('Tiles', bm, MAT['LobbyFloor'], smooth=False)
     # colore per lastra (12 vertici per lastra)
     col = tiles.data.color_attributes.new('Tint', 'FLOAT_COLOR', 'POINT')
     for i in range(len(tiles.data.vertices)):
@@ -277,7 +286,7 @@ def build_island():
     static(tiles)
 
     # anelli luminosi e cordolo
-    curb = lathe('Curb', [(PLAZA_R - 0.35, 0.0), (PLAZA_R - 0.35, 0.12), (PLAZA_R - 0.2, 0.16), (PLAZA_R + 0.05, 0.16), (PLAZA_R + 0.2, 0.1), (PLAZA_R + 0.25, 0.0)], MAT['Stone'], segs=192)
+    curb = lathe('Curb', [(PLAZA_R - 0.35, 0.0), (PLAZA_R - 0.35, 0.12), (PLAZA_R - 0.2, 0.16), (PLAZA_R + 0.05, 0.16), (PLAZA_R + 0.2, 0.1), (PLAZA_R + 0.25, 0.0)], MAT['Hull'], segs=192)
     static(curb)
     for rr in (12.4, PLAZA_R - 0.75):
         lathe('GlowRing', [(rr + 0.05, 0.075), (rr - 0.05, 0.075)], MAT['GlowCyan'], segs=160, smooth=False)
@@ -341,18 +350,20 @@ def build_island():
 def build_fountain():
     parts = []
     basin = lathe('Basin', [(0, 0.05), (4.7, 0.05), (4.75, 0.3), (5.0, 0.3), (5.3, 0.36), (5.4, 0.55), (5.32, 0.66), (5.05, 0.68),
-                            (4.8, 0.62), (4.72, 0.4)], MAT['Stone'], segs=96)
+                            (4.8, 0.62), (4.72, 0.4)], MAT['Hull'], segs=96)
     parts.append(basin)
-    step = lathe('Step', [(5.4, 0.0), (6.3, 0.0), (6.3, 0.18), (6.1, 0.22), (5.4, 0.22)], MAT['StoneDark'], segs=96)
+    step = lathe('Step', [(5.4, 0.0), (6.3, 0.0), (6.3, 0.18), (6.1, 0.22), (5.4, 0.22)], MAT['HullDark'], segs=96)
     parts.append(step)
-    col = lathe('Column', [(0.95, 0.3), (0.95, 0.55), (0.7, 0.75), (0.55, 1.3), (0.5, 2.0), (0.62, 2.35), (0.8, 2.5)], MAT['Stone'], segs=48)
+    col = lathe('Column', [(0.95, 0.3), (0.95, 0.55), (0.7, 0.75), (0.55, 1.3), (0.5, 2.0), (0.62, 2.35), (0.8, 2.5)], MAT['Hull'], segs=48)
     parts.append(col)
-    bowl = lathe('Bowl', [(0.5, 2.45), (1.2, 2.5), (2.0, 2.8), (2.15, 3.05), (2.05, 3.12), (1.9, 3.05), (0.6, 2.85)], MAT['Stone'], segs=64)
+    bowl = lathe('Bowl', [(0.5, 2.45), (1.2, 2.5), (2.0, 2.8), (2.15, 3.05), (2.05, 3.12), (1.9, 3.05), (0.6, 2.85)], MAT['Hull'], segs=64)
     parts.append(bowl)
     gold = lathe('GoldRing', [(2.16, 3.0), (2.2, 3.05), (2.16, 3.1)], MAT['Gold'], segs=64)
     parts.append(gold)
-    top = lathe('Top', [(0.3, 2.95), (0.3, 3.6), (0.45, 3.75), (0.2, 3.95), (0.05, 4.0)], MAT['StoneDark'], segs=32)
+    top = lathe('Top', [(0.3, 2.95), (0.3, 3.6), (0.45, 3.75), (0.2, 3.95), (0.05, 4.0)], MAT['HullDark'], segs=32)
     parts.append(top)
+    for rr, z in ((5.42, 0.5), (6.32, 0.12), (2.2, 3.0)):
+        parts.append(lathe('FRing', [(rr, z), (rr + 0.06, z + 0.02), (rr + 0.06, z + 0.07), (rr, z + 0.09)], MAT['GlowCyan'], segs=96, smooth=False))
     f = static(join(parts, 'Fountain'))
     w1 = disc('Water', 0, 4.74, 10, 96, MAT['Water'], z=0.45)
     w2 = disc('Water_top', 0, 1.95, 6, 64, MAT['Water'], z=2.98)
@@ -783,6 +794,7 @@ from world_districts import World, BOUNDS, PLAZA_FLAT, WORLD_R  # noqa: E402
 import world_extra  # noqa: E402
 
 world_extra.install(World)
+world_extra.install_lobby(World)
 
 world = World({
     'G': G, 'place': place, 'box': box, 'cylinder': cylinder, 'lathe': lathe, 'blob': blob, 'disc': disc,
@@ -801,6 +813,7 @@ world.build_medieval()
 world.build_east()
 world.build_snow()
 world.build_plaza_extras()
+world.build_lobby()
 world.npc_spots_misc()
 world.scatter_countryside()
 world.pad('Piazza Centrale', 7.5, 19.0, y=0.0, facing=PI)

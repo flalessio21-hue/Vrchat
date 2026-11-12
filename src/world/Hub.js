@@ -66,12 +66,12 @@ export class Hub {
         radius: it.radius,
         type: it.type,
         label: it.label,
-        data: it.type === 'sit' ? this.seats[it.seat] : it.type === 'teleport' ? this.destinations : it.type === 'shop' ? it.shop : null,
+        data: it.type === 'sit' ? this.seats[it.seat] : it.type === 'teleport' ? this.destinations : it.type === 'shop' ? it.shop : it.type === 'screen' ? it.screen : null,
       })),
     ];
 
     scene.background = new THREE.Color(0xe7a0b0);
-    scene.fog = new THREE.Fog(0xc993b8, 110, 640);
+    scene.fog = new THREE.Fog(0x8a6a9a, 110, 640);
 
     this.buildLights();
     this.buildSky();
@@ -83,6 +83,8 @@ export class Hub {
     this.buildCampfire();
     this.buildSnowfall();
     this.buildBalloons();
+    this.buildFloorReflection();
+
     this.buildMirror();
     this.buildGem();
     this.buildParticles();
@@ -139,9 +141,9 @@ export class Hub {
         void main() {
           vec3 d = normalize(vDir);
           float h = d.y;
-          vec3 zenith = vec3(0.10, 0.09, 0.32);
-          vec3 mid = vec3(0.42, 0.30, 0.68);
-          vec3 horizon = vec3(1.0, 0.62, 0.62);
+          vec3 zenith = vec3(0.04, 0.05, 0.2);
+          vec3 mid = vec3(0.22, 0.2, 0.5);
+          vec3 horizon = vec3(0.98, 0.5, 0.55);
           vec3 low = vec3(0.86, 0.58, 0.78);
           vec3 col = mix(horizon, mid, smoothstep(0.02, 0.28, h));
           col = mix(col, zenith, smoothstep(0.28, 0.85, h));
@@ -275,6 +277,15 @@ export class Hub {
         mat.side = THREE.FrontSide;
       }
       if (mat.name === 'Flower') mat.side = THREE.DoubleSide;
+      // superfici lucide dell'atrio: niente riflesso abbagliante del sole (il riflesso lo fa il Reflector)
+      if (mat.name === 'LobbyFloor') {
+        mat.roughness = 0.62;
+        mat.metalness = 0.0;
+      }
+      if (mat.name === 'Hull' || mat.name === 'HullDark') {
+        mat.roughness = 0.55;
+        mat.metalness = 0.35;
+      }
       if (name.startsWith('Water_lake')) {
         o.material = this.lakeMaterial();
         o.receiveShadow = false;
@@ -292,6 +303,21 @@ export class Hub {
         o.material = this.screenMaterial();
         return;
       }
+      if (name.startsWith('Screen_')) {
+        o.material = this.bigScreenMaterial(name.slice(7));
+        return;
+      }
+      if (name === 'Logo_holo') {
+        o.material = this.logoMaterial();
+        o.renderOrder = 5;
+        this.logo = o;
+        return;
+      }
+      if (name === 'Waterfall') {
+        o.material = this.waterfallMaterial();
+        return;
+      }
+      if (name === 'Tiles') this.floor = o;
       if (name.startsWith('Board_neon_')) {
         const k = Number(name.slice(11));
         const tex = neonSign((this.layout.signs || [])[k] || 'OASIS', k);
@@ -965,8 +991,240 @@ export class Hub {
     });
   }
 
+  // ------------------------------------------------------------- atrio fantascientifico
+  /** Pavimento lucido: riflesso reale (solo computer, costa un secondo rendering). */
+  buildFloorReflection() {
+    if (matchMedia('(pointer: coarse)').matches) return;
+    const R = this.layout.plazaRadius || 24;
+    const res = Math.min(1024, Math.round(window.innerWidth * 0.6));
+    const refl = new Reflector(new THREE.CircleGeometry(R - 0.3, 96), {
+      textureWidth: res,
+      textureHeight: Math.round(res * (window.innerHeight / window.innerWidth)),
+      clipBias: 0.01,
+      shader: {
+        name: 'FloorReflection',
+        uniforms: { color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null }, uTime: { value: 0 } },
+        vertexShader: /* glsl */ `
+          uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vW;
+          void main(){ vUv = textureMatrix * vec4(position, 1.0); vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: /* glsl */ `
+          uniform sampler2D tDiffuse; uniform float uTime; varying vec4 vUv; varying vec3 vW;
+          void main(){
+            vec4 uv = vUv;
+            // piccole ondulazioni: pavimento "bagnato" e non uno specchio perfetto
+            uv.xy += vec2(sin(vW.x * 1.7 + vW.z * 0.6), cos(vW.z * 1.9 - vW.x * 0.4)) * 0.012 * uv.w;
+            vec3 r = texture2DProj(tDiffuse, uv).rgb;
+            vec3 v = normalize(cameraPosition - vW);
+            float fres = 0.18 + 0.55 * pow(1.0 - clamp(v.y, 0.0, 1.0), 3.0);
+            float edge = 1.0 - smoothstep(${(R - 3).toFixed(1)}, ${(R - 0.3).toFixed(1)}, length(vW.xz));
+            gl_FragColor = vec4(r, fres * edge);
+            #include <colorspace_fragment>
+          }`,
+      },
+    });
+    refl.material.transparent = true;
+    refl.material.depthWrite = false;
+    refl.rotation.x = -Math.PI / 2;
+    refl.position.y = 0.072;
+    refl.renderOrder = 1;
+    this.group.add(refl);
+    this.floorReflector = refl;
+  }
+
+  buildOrbLights() {
+    if (matchMedia('(pointer: coarse)').matches) return;
+    (this.layout.orbs || []).slice(0, 8).forEach((p, i) => {
+      if (i % 2) return;
+      const l = new THREE.PointLight(0xffb070, 4, 8, 1.8);
+      l.position.set(...p);
+      this.group.add(l);
+    });
+  }
+
+  bigScreenMaterial(id) {
+    const info = {
+      explore: { title: 'ESPLORA', sub: 'Teletrasporto nei quartieri', icon: '🧭', a: '#2a8cff', b: '#7ff0ff' },
+      play: { title: 'GIOCA', sub: 'Entra nei portali dei mondi', icon: '🎮', a: '#ff3df2', b: '#ffb02e' },
+      create: { title: 'CREA', sub: 'Personalizza il tuo avatar', icon: '🧩', a: '#7dff6a', b: '#39e6ff' },
+      social: { title: 'SOCIAL', sub: 'Saluta chi è in piazza', icon: '👥', a: '#a98bff', b: '#ff9ce8' },
+    }[id] || { title: id.toUpperCase(), sub: '', icon: '★', a: '#39e6ff', b: '#ff3df2' };
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 538;
+    const ctx = canvas.getContext('2d');
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = false;
+    const draw = (t) => {
+      const w = canvas.width;
+      const h = canvas.height;
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, '#070a1c');
+      g.addColorStop(1, '#141038');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      // paesaggio animato sullo sfondo
+      for (let k = 0; k < 3; k++) {
+        ctx.fillStyle = [info.a, info.b, '#ffffff'][k] + ['33', '22', '11'][k];
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        for (let x = 0; x <= w; x += 16) ctx.lineTo(x, h * (0.62 + k * 0.08) + Math.sin(x * 0.01 + t * (0.3 + k * 0.2) + k) * 30);
+        ctx.lineTo(w, h);
+        ctx.fill();
+      }
+      ctx.strokeStyle = info.b + '55';
+      ctx.lineWidth = 2;
+      for (let x = (t * 40) % 64; x < w; x += 64) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      ctx.font = '160px system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(info.icon, 70, h * 0.42);
+      ctx.shadowColor = info.b;
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 150px system-ui, sans-serif';
+      ctx.fillText(info.title, 280, h * 0.4);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#cfe8ff';
+      ctx.font = '600 44px system-ui, sans-serif';
+      ctx.fillText(info.sub, 284, h * 0.62);
+      ctx.fillStyle = info.b;
+      ctx.fillRect(284, h * 0.72, 180 + Math.sin(t * 2) * 60, 8);
+      tex.needsUpdate = true;
+    };
+    draw(0);
+    let acc = 0;
+    this.animated.push((dt, t) => {
+      acc += dt;
+      if (acc > 0.1) {
+        acc = 0;
+        draw(t);
+      }
+    });
+    return new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+  }
+
+  logoMaterial() {
+    const tex = makePanelTexture((ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      // pannello di vetro scuro dietro la scritta: si legge anche contro il cielo
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, 'rgba(8, 12, 40, 0.0)');
+      bg.addColorStop(0.3, 'rgba(8, 12, 40, 0.62)');
+      bg.addColorStop(1, 'rgba(8, 12, 40, 0.62)');
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.roundRect(60, 40, w - 120, h - 80, 60);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(127, 240, 255, 0.55)';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      // emblema originale: anello con stella a quattro punte
+      const cx = w / 2;
+      const cy = h * 0.2;
+      ctx.strokeStyle = '#9ff6ff';
+      ctx.lineWidth = 14;
+      ctx.shadowColor = '#39e6ff';
+      ctx.shadowBlur = 30;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 70, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#9ff6ff';
+      ctx.beginPath();
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2 - Math.PI / 2;
+        const r = k % 2 ? 16 : 48;
+        ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '300 250px system-ui, -apple-system, Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowBlur = 40;
+      ctx.fillText('O A S I S', cx, h * 0.58);
+      ctx.font = '500 58px system-ui, sans-serif';
+      ctx.fillStyle = '#cfe8ff';
+      ctx.shadowBlur = 20;
+      ctx.fillText('GIOCA  •  ESPLORA  •  CREA', cx, h * 0.86);
+    }, 2048, 878);
+    tex.flipY = false;
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      uniforms: { map: { value: tex }, uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} ',
+      fragmentShader: /* glsl */ `
+        uniform sampler2D map; uniform float uTime; varying vec2 vUv;
+        void main(){
+          vec4 c = texture2D(map, vUv);
+          float scan = 0.85 + 0.15 * sin(vUv.y * 600.0 - uTime * 4.0);
+          float flick = 0.92 + 0.08 * sin(uTime * 17.0) * sin(uTime * 3.1);
+          gl_FragColor = vec4(c.rgb * 1.6 * scan * flick, c.a);
+          #include <colorspace_fragment>
+        }`,
+    });
+    this.animated.push((dt, t) => (mat.uniforms.uTime.value = t));
+    return mat;
+  }
+
+  waterfallMaterial() {
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} ',
+      fragmentShader: /* glsl */ `
+        varying vec2 vUv; uniform float uTime;
+        ${NOISE_GLSL}
+        void main(){
+          vec2 p = vec2(vUv.x * 6.0, vUv.y * 3.0 + uTime * 2.2);
+          float n = noise(p * vec2(1.0, 0.35)) * 0.6 + noise(p * 3.0) * 0.4;
+          float streak = smoothstep(0.35, 0.75, n);
+          vec3 col = mix(vec3(0.45, 0.75, 1.0), vec3(1.0), streak);
+          float edge = smoothstep(0.0, 0.12, vUv.x) * smoothstep(1.0, 0.88, vUv.x);
+          float foam = smoothstep(0.12, 0.0, vUv.y);
+          gl_FragColor = vec4(col + foam * 0.5, (0.55 + streak * 0.4) * edge);
+          #include <colorspace_fragment>
+        }`,
+    });
+    this.animated.push((dt, t) => (mat.uniforms.uTime.value = t));
+    // spruzzi alla base
+    const wf = this.layout.waterfall;
+    if (wf) {
+      const N = 120;
+      const arr = new Float32Array(N * 3);
+      const seeds = Array.from({ length: N }, rng(91));
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+      const mist = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xe8f8ff, size: 0.35, transparent: true, opacity: 0.35, depthWrite: false }));
+      mist.frustumCulled = false;
+      this.group.add(mist);
+      this.animated.push((dt, t) => {
+        for (let i = 0; i < N; i++) {
+          const s = seeds[i];
+          const life = (t * 0.6 + s) % 1;
+          const a = s * 50;
+          arr[i * 3] = wf[0] + Math.cos(a) * (0.5 + life * 3);
+          arr[i * 3 + 1] = 0.5 + life * 2.2 - life * life * 1.8;
+          arr[i * 3 + 2] = wf[1] + Math.sin(a) * (0.5 + life * 3);
+        }
+        geo.attributes.position.needsUpdate = true;
+      });
+    }
+    return mat;
+  }
+
   update(dt, time, playerPos, isXR) {
     for (const fn of this.animated) fn(dt, time);
+    if (this.floorReflector) this.floorReflector.visible = !isXR && Math.hypot(playerPos.x, playerPos.z) < 45;
     this.updateSnow(dt, time, playerPos);
     this.grassUniforms?.uCenter.value.set(playerPos.x, playerPos.z);
     const near = playerPos.distanceTo(this.mirror.position) < 22;

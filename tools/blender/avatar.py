@@ -476,6 +476,31 @@ c_collar = ring_curve('ccollar', (0, 0, 1.4), 0.07, 0.012, M['Accent'])
 c_belt = ring_curve('cbelt', (0, 0, 0.95), 1.0, 0.014, M['Accent'], rot=Matrix.Diagonal((0.137, 0.106, 1)))
 top_cyber = join([suit, gloves, plate, abs_plate, *pads, *glow_lines, c_collar, c_belt], 'Top_cyber')
 
+# Tuta spaziale: busto imbottito, imbracatura, collare, guanti e zaino con nucleo luminoso
+V, E, R = body_skeleton(1.1, 0.012, parts=('torso', 'arms', 'collar'), torso_low=0.86)
+ssuit = skin_mesh('ssuit', V, E, R, M['Top'])
+V, E, R = body_skeleton(1.2, 0.005, parts=('hands',))
+sgloves = skin_mesh('sgloves', V, E, R, M['Dark'])
+harness = []
+for sd in (1, -1):
+    st = curve_strand('strap', [(sd * 0.09, -0.125, 1.33), (sd * 0.08, -0.14, 1.15), (sd * 0.07, -0.13, 0.95)], 0.014, 0.014, bulge=0)
+    set_material(st, M['Dark'])
+    harness.append(st)
+    st2 = curve_strand('strapb', [(sd * 0.09, 0.12, 1.33), (sd * 0.08, 0.13, 1.1)], 0.014, 0.014, bulge=0)
+    set_material(st2, M['Dark'])
+    harness.append(st2)
+    harness.append(ring_curve('cuffring', WRIST[sd] + arm_dir(sd) * -0.045, 0.05, 0.012, M['TopDark'],
+                              rot=Matrix.Rotation(sd * (PI / 2 - ARM_DOWN), 3, 'Y')))
+    harness.append(rounded_box('patch', (0.03, 0.07, 0.05), SH[sd] + arm_dir(sd) * 0.1 + Vector((0, -0.01, 0.05)), M['Accent'], levels=1))
+harness.append(rounded_box('chestbox', (0.14, 0.05, 0.09), Vector((0, -0.14, 1.12)), M['TopDark']))
+harness.append(ring_curve('chestlight', (0, -0.168, 1.12), 0.022, 0.006, M['Accent'], rot=Rx90))
+harness.append(ring_curve('scollar', (0, 0, 1.4), 0.085, 0.022, M['TopDark']))
+harness.append(ring_curve('sbelt', (0, 0, 0.94), 1.0, 0.018, M['Dark'], rot=Matrix.Diagonal((0.15, 0.12, 1))))
+spack = [rounded_box('spack', (0.26, 0.13, 0.32), Vector((0, 0.175, 1.16)), M['TopDark']),
+         ring_curve('core', (0, 0.245, 1.18), 0.06, 0.014, M['Accent'], rot=Rx90),
+         rounded_box('corefill', (0.07, 0.02, 0.07), Vector((0, 0.243, 1.18)), M['Accent'], levels=1)]
+top_space = join([ssuit, sgloves, *harness, *spack], 'Top_space')
+
 # Pantaloni / shorts / gonna
 V, E, R = body_skeleton(1.08, 0.01, parts=('legs', 'waist'), torso_low=0.87)
 pants = skin_mesh('pants', V, E, R, M['Bottom'])
@@ -509,6 +534,26 @@ for sd in (1, -1):
 belt3 = ring_curve('belt', (0, 0, 0.965), 1.0, 0.016, M['Dark'], rot=Matrix.Diagonal((0.14, 0.112, 1)))
 buckle3 = box('buckle', (0.04, 0.012, 0.028), (0, -0.118, 0.965), M['Gold'], subdiv=0)
 bottom_cargo = join([cargo, *c_pockets, belt3, buckle3], 'Bottom_cargo')
+
+# Pantaloni della tuta spaziale: ginocchiere e tasche sulle cosce
+space_legs = pants.copy()
+space_legs.data = pants.data.copy()
+link(space_legs)
+bm = bmesh.new()
+bm.from_mesh(space_legs.data)
+bm.normal_update()
+for vtx in bm.verts:
+    vtx.co += vtx.normal * (0.012 if vtx.co.z < 0.9 else 0.004)
+bm.to_mesh(space_legs.data)
+bm.free()
+s_parts = [space_legs]
+for sd in (1, -1):
+    kn = HIP[sd].lerp(ANKLE[sd], 0.5)
+    s_parts.append(rounded_box('kneepad', (0.11, 0.06, 0.1), kn + Vector((0, -0.07, 0)), M['Dark']))
+    s_parts.append(rounded_box('tpocket', (0.04, 0.11, 0.12), HIP[sd].lerp(ANKLE[sd], 0.28) + Vector((sd * 0.092, 0, 0)), M['TopDark']))
+    s_parts.append(ring_curve('ankle', ANKLE[sd] + Vector((0, 0, 0.04)), 0.058, 0.014, M['TopDark']))
+s_parts.append(ring_curve('sbelt2', (0, 0, 0.965), 1.0, 0.016, M['Dark'], rot=Matrix.Diagonal((0.14, 0.112, 1))))
+bottom_space = join(s_parts, 'Bottom_space')
 bottom_pants = join([pants, belt, buckle, *loops, *p_hems], 'Bottom_pants')
 
 V, E, R = body_skeleton(1.12, 0.012, parts=('legs', 'waist'), torso_low=0.87, leg_end=0.26)
@@ -793,10 +838,18 @@ for sd in (1, -1):
     set_material(st, M['Dark'])
     pack.append(st)
 acc['backpack'] = pack
+helm = latlong('helmet', 1.42, M['Top'], rings=20, segs=32, keep=lambda th, ph: not (0.38 * PI < th < 0.68 * PI and abs(ph) < 0.95) and th < 0.86 * PI)
+so = helm.modifiers.new('so', 'SOLIDIFY')
+so.thickness = 0.016
+apply_modifiers(helm)
+hvisor = latlong('hvisor', 1.38, M['Visor'], rings=8, segs=16, th0=0.36 * PI, th1=0.7 * PI, ph0=-1.0, ph1=1.0, closed=False)
+hrim = ring_curve('hrim', HEAD_C + Vector((0, 0, -HEAD_R * 1.18)), HEAD_R * 1.05, 0.02, M['TopDark'])
+hlight = rounded_box('hlight', (0.04, 0.03, 0.03), S(0.3 * PI, 1.2, 1.45), M['Accent'], levels=1)
+acc['helmet'] = [helm, hvisor, hrim, hlight]
 acc_objs = {k: join(v, f'Acc_{k}') for k, v in acc.items()}
 
 # ------------------------------------------------------------------ skinning
-skinned_auto = [body, top_hoodie, top_tshirt, top_jacket, top_cyber, bottom_pants, bottom_shorts, bottom_cargo]
+skinned_auto = [body, top_hoodie, top_tshirt, top_jacket, top_cyber, top_space, bottom_pants, bottom_shorts, bottom_cargo, bottom_space]
 
 
 def add_armature_mod(obj):
@@ -881,7 +934,7 @@ for obj in skinned_auto[1:]:
 
 head_only = lambda co: {'head': 1.0}  # noqa: E731
 for obj in [head, face, *[o for k, o in hair_objs.items() if k in ('short', 'spiky', 'bob', 'buns')], acc_objs['halo'], acc_objs['headphones'],
-            acc_objs['glasses'], acc_objs['horns'], acc_objs['visor'], acc_objs['crown']]:
+            acc_objs['glasses'], acc_objs['horns'], acc_objs['visor'], acc_objs['crown'], acc_objs['helmet']]:
     rigid(obj, head_only)
 for obj in (acc_objs['wings'], acc_objs['backpack']):
     rigid(obj, lambda co: {'chest': 1.0})

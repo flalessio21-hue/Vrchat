@@ -43,7 +43,7 @@ export class Engine {
     this.composer = new EffectComposer(this.renderer, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     const res = new THREE.Vector2(window.innerWidth, window.innerHeight).multiplyScalar(isMobile ? 0.5 : 1);
-    this.bloom = new UnrealBloomPass(res, 0.45, 0.45, 0.95);
+    this.bloom = new UnrealBloomPass(res, 0.5, 0.45, 0.93);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 

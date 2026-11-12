@@ -6,7 +6,10 @@ un'app per **Meta Quest** (WebXR), **Android** e **iPhone** senza riscrivere il 
 Al momento contiene:
 - **Un'isola grande da esplorare** (circa 600 m di diametro) con terreno vero, colline, lago e scogliere
   sul mare di nuvole, divisa in quartieri:
-  - **Piazza Centrale**: fontana con cristallo, 6 portali verso i mondi futuri, specchio, panchine
+  - **Piazza Centrale (atrio futuristico)**: sei archi metallici con luci al neon che salgono a un anello sospeso,
+    logo olografico, maxischermi animati ESPLORA / GIOCA / CREA / SOCIAL (interattivi), pavimento lucido con
+    riflessi e strisce di luce, piante tropicali con sfere luminose, cascata da una roccia sospesa,
+    fontana con cristallo, 6 portali, specchio, panchine
   - **Quartiere Neon**: grattacieli illuminati, insegne, lampioni al neon, piazza con schermo olografico
   - **Lago Cristallo**: spiaggia, pontile con panchine, barche, palme, ombrelloni e lettini
   - **Foresta Sussurrante**: centinaia di alberi, sentiero, accampamento con falò, capanna e tenda
@@ -24,7 +27,7 @@ Al momento contiene:
 - **Teletrasporti** (piattaforme luminose o pulsante Mappa / tasto M) e minimappa a radar;
   il nome del quartiere compare quando ci entri.
 - **Avatar stile cartone** creato in Blender (testa grande, occhi grandi, gambe corte, ombre a bande e contorno spesso): dita, polpacci, spalle modellati; capelli a strati
-  (7 tagli), felpa con cappuccio e zip, giacca con risvolti, maglietta, tuta cyber con guanti,
+  (7 tagli), felpa con cappuccio e zip, giacca con risvolti, maglietta, tuta cyber con guanti, tuta spaziale con zaino luminoso e casco,
   pantaloni, cargo, shorts, gonna, sneakers o stivali, 10 accessori (orecchie, aureola, cuffie,
   occhiali, corna, ali, visore, corona, zaino). Viso con espressioni, riflesso anime sui capelli.
 - **Animazioni ed emote**: idle, camminata, corsa, salto; saluto, ballo, esulta, seduto.

@@ -635,21 +635,19 @@ def install(World):
             a = math.radians(deg)
             gx, gz = math.sin(a) * 19.0, math.cos(a) * 19.0
             f = a + PI  # guarda il centro della piazza
-            parts = [c['box']('counter', (3.4, 0.9, 1.05), (0, -0.6, 0.53), M['Wood'], bevel=0.04, segs=1),
-                     c['box']('countertop', (3.6, 1.1, 0.08), (0, -0.6, 1.08), M['WoodDark'])]
-            back = c['box']('back', (3.6, 0.2, 2.8), (0, 1.1, 1.4), M['Canvas'])
-            tint(back, tuple(0.55 + 0.45 * x for x in color))
-            parts.append(back)
+            # chiosco fantascientifico: bancone in metallo, pannello scuro con cornice luminosa, tettoia sospesa
+            parts = [c['box']('counter', (3.4, 0.9, 1.05), (0, -0.6, 0.53), M['Hull'], bevel=0.08, segs=2),
+                     c['box']('countertop', (3.6, 1.1, 0.08), (0, -0.6, 1.08), M['HullDark']),
+                     c['box']('counterglow', (3.42, 0.05, 0.06), (0, -1.07, 0.9), M['GlowCyan']),
+                     c['box']('back', (3.6, 0.25, 2.9), (0, 1.1, 1.45), M['HullDark'], bevel=0.05, segs=1)]
+            panel = c['box']('panel', (3.0, 0.06, 1.6), (0, 0.96, 1.9), M['Canvas'])
+            tint(panel, tuple(0.35 + 0.65 * x for x in color))
+            parts.append(panel)
             for sx in (-1, 1):
-                for sy in (-1, 1):
-                    parts.append(c['cylinder']('post', 0.07, 0.07, 3.0, M['Timber'], segs=8, center=(sx * 1.75, sy * 1.0 + 0.1, 0)))
-            aw = c['box']('awning', (4.0, 2.6, 0.08), (0, 0, 0), M['Canvas'])
-            aw.data.transform(Matrix.Translation((0, -0.4, 3.0)) @ Matrix.Rotation(-0.25, 4, 'X'))
-            col = aw.data.color_attributes.new('Tint', 'FLOAT_COLOR', 'POINT')
-            for i, v in enumerate(aw.data.vertices):
-                stripe = int((v.co.x + 2.0) / 0.5) % 2
-                col.data[i].color = (*srgb(color if stripe else (1, 1, 1)), 1)
-            parts.append(aw)
+                parts.append(c['box']('frameglow', (0.06, 0.08, 2.7), (sx * 1.78, 0.98, 1.45), M['GlowCyan']))
+                parts.append(c['box']('pillar', (0.22, 0.22, 3.2), (sx * 1.85, 1.1, 1.6), M['Hull'], bevel=0.04, segs=1))
+            parts.append(c['box']('canopy', (4.2, 2.7, 0.14), (0, -0.2, 3.25), M['Hull'], bevel=0.05, segs=1))
+            parts.append(c['box']('canopyglow', (4.22, 0.06, 0.06), (0, -1.55, 3.22), M['GlowCyan']))
             for sx in (-1, 1):  # piedistalli per mostrare la merce
                 parts.append(c['cylinder']('ped', 0.42, 0.5, 0.8, M['Stone'], segs=16, center=(sx * 2.6, -1.9, 0)))
                 parts.append(c['cylinder']('pedglow', 0.44, 0.44, 0.04, M['GlowCyan'], segs=16, center=(sx * 2.6, -1.9, 0.8), smooth=False))
@@ -675,13 +673,20 @@ def install(World):
             if any(abs((deg - d + 180) % 360 - 180) < 9 for d in (30, 90, 150, 210, 270, 330, 0, 180, 60, 120, 240, 300)):
                 continue
             px, pz = math.sin(a) * 22.6, math.cos(a) * 22.6
-            planter = c['box']('planter', (1.6, 0.9, 0.6), (0, 0, 0.3), M['Stone'], bevel=0.05, segs=1)
-            planter.data.transform(Matrix.Rotation(a, 4, 'Z'))
+            planter = c['lathe']('planter', [(0.95, 0), (1.0, 0.1), (1.0, 0.55), (0.92, 0.6), (0.85, 0.5)], M['HullDark'], segs=24)
             planter.location = c['G'](px, 0, pz)
             parts.append(planter)
-            bush = c['blob']('pbush', 0.55, M['Bush'], subdiv=2, rough=0.2, seed=k + 700, squash=0.7)
-            bush.location = c['G'](px, 0.75, pz)
-            parts.append(bush)
+            rim = c['lathe']('prim', [(1.0, 0.56), (1.03, 0.58), (1.03, 0.62), (1.0, 0.64)], M['GlowCyan'], segs=24, smooth=False)
+            rim.location = c['G'](px, 0, pz)
+            parts.append(rim)
+            plant = self.tropical_plant(k + 700)
+            plant.location = c['G'](px, 0.5, pz)
+            parts.append(plant)
+            if k % 2 == 0:
+                orb = c['blob']('orb', 0.32, M['OrbLamp'], subdiv=2, rough=0.0, seed=k)
+                orb.location = c['G'](px + math.cos(a) * 0.55, 0.85, pz - math.sin(a) * 0.55)
+                parts.append(orb)
+                self.L.setdefault('orbs', []).append([round(px, 2), 0.95, round(pz, 2)])
             c['collider'](px, pz, 0.85)
         for d in (30, 90, 150, 210, 270, 330):
             for s in (-1, 1):
@@ -733,3 +738,224 @@ def install(World):
         sp['stage'] = [[round(x, 2), 0.3, round(z, 2)] for x, z in ((86, -50), (90, -47), (82, -54), (88, -56))]
 
     World.npc_spots_misc = npc_spots_misc
+
+
+def install_lobby(World):
+    """Atrio fantascientifico sopra la piazza (ispirato a una hall futuristica)."""
+
+    def tropical_plant(self, seed):
+        c, M = self.c, self.M
+        r = random.Random(seed)
+        parts = []
+        for k in range(9):
+            a = k / 9 * 2 * PI + r.random() * 0.4
+            L = 0.9 + r.random() * 0.7
+            tilt = 0.5 + r.random() * 0.5
+            p0 = Vector((0, 0, 0.05))
+            p1 = Vector((math.cos(a) * L * 0.4, math.sin(a) * L * 0.4, L * 0.7 * tilt + 0.3))
+            p2 = Vector((math.cos(a) * L, math.sin(a) * L, L * 0.45 * tilt + 0.1))
+            leaf = c['curve_strand']('leaf', [p0, p1, p2], 0.11, 0.02, bulge=0.6, res=2, bevel_res=1)
+            for v in leaf.data.vertices:  # foglia larga e piatta
+                v.co.z = v.co.z * 0.85
+            c['set_material'](leaf, M['Foliage'] if k % 3 else M['LeavesGreen'])
+            parts.append(leaf)
+        return c['join'](parts, 'plant')
+
+    def arc_beam(self, name, angle, r0, r1, h, width, depth, mat, glow, n=28):
+        """Trave curva (quarto di ellisse) da terra (raggio r0) fino all'anello centrale (raggio r1, altezza h)."""
+        c = self.c
+        bm = bmesh.new()
+        ca, sa = math.sin(angle), math.cos(angle)  # direzione nel gioco: x = sin, z = cos
+        rings = []
+        for i in range(n + 1):
+            t = i / n * (PI / 2)
+            rr = r1 + (r0 - r1) * math.cos(t)
+            y = h * math.sin(t)
+            # tangente per orientare la sezione
+            dr = -(r0 - r1) * math.sin(t)
+            dy = h * math.cos(t)
+            ln = math.hypot(dr, dy)
+            nr, ny = -dy / ln, dr / ln  # normale nel piano verticale
+            ring = []
+            for sw, sd in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                off_r = nr * depth / 2 * sd
+                off_y = ny * depth / 2 * sd
+                gx = ca * (rr + off_r) + sa * 0 + (-sa) * 0
+                gz = sa * (rr + off_r)
+                # spostamento laterale (larghezza della trave)
+                lx, lz = math.cos(angle) * width / 2 * sw, -math.sin(angle) * width / 2 * sw
+                ring.append(bm.verts.new(c['G'](gx + lx, y + off_y, gz + lz)))
+            rings.append(ring)
+        for i in range(n):
+            for q in range(4):
+                q2 = (q + 1) % 4
+                bm.faces.new([rings[i][q], rings[i][q2], rings[i + 1][q2], rings[i + 1][q]])
+        bm.faces.new(rings[0][::-1])
+        bm.faces.new(rings[-1])
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        beam = c['mesh_object'](name, bm, mat, smooth=False)
+        # striscia luminosa sul lato interno
+        pts = []
+        for i in range(n + 1):
+            t = i / n * (PI / 2)
+            rr = r1 + (r0 - r1) * math.cos(t) - 0.05
+            y = h * math.sin(t) - depth / 2 - 0.02 if i else 0.3
+            pts.append(c['G'](ca * rr, max(y, 0.3), sa * rr))
+        strip = c['curve_strand']('strip', pts, 0.07, 0.07, bulge=0, res=2, bevel_res=1)
+        c['set_material'](strip, glow)
+        return c['join']([beam, strip], name)
+
+    def screen(self, sid, label, gx, gz, w=8.0, h=4.2, base=3.2):
+        c, M = self.c, self.M
+        f = math.atan2(-gx, -gz)
+        parts = [c['box']('frame', (w + 0.5, 0.5, h + 0.5), (0, 0.15, base + h / 2), M['HullDark'], bevel=0.08, segs=1),
+                 c['box']('glowtop', (w + 0.52, 0.08, 0.08), (0, -0.12, base + h + 0.26), M['GlowCyan']),
+                 c['box']('glowbot', (w + 0.52, 0.08, 0.08), (0, -0.12, base - 0.26), M['GlowCyan'])]
+        for sx in (-1, 1):
+            parts.append(c['box']('leg', (0.5, 0.5, base), (sx * (w / 2 - 0.6), 0.15, base / 2), M['Hull'], bevel=0.06, segs=1))
+        o = c['static'](c['join'](parts, f'ScreenFrame_{sid}'))
+        c['place'](o, gx, 0, gz, f)
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new('UVMap')
+        vs = [bm.verts.new(p) for p in ((-w / 2, -0.11, base), (w / 2, -0.11, base), (w / 2, -0.11, base + h), (-w / 2, -0.11, base + h))]
+        face = bm.faces.new(vs)
+        for loop, uv in zip(face.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            loop[uvl].uv = uv
+        scr = c['mesh_object'](f'Screen_{sid}', bm, M['Screen'], smooth=False)
+        c['place'](scr, gx, 0, gz, f)
+        for sx in (-1, 1):
+            px, pz = self.local(gx, gz, f, sx * (w / 2 - 0.6), -0.15)
+            c['collider'](px, pz, 0.45)
+        ix, iz = self.local(gx, gz, f, 0, 2.6)
+        self.L['interactables'].append({'type': 'screen', 'screen': sid, 'point': [round(ix, 2), 0, round(iz, 2)], 'radius': 3.0, 'label': label})
+        self.L.setdefault('screens', {})[sid] = label
+
+    def build_lobby(self):
+        c, M = self.c, self.M
+        # sei archi che salgono a un anello sospeso al centro
+        H_TOP = 26.0
+        R_TOP = 9.0
+        R_FOOT = 28.0
+        beams = []
+        for k in range(6):
+            a = math.radians(45 + 60 * k)
+            beams.append(self.arc_beam(f'Arch_{k}', a, R_FOOT, R_TOP, H_TOP, 1.1, 1.4, M['Hull'], M['ArchGlow']))
+            fx, fz = math.sin(a) * R_FOOT, math.cos(a) * R_FOOT
+            foot = c['cylinder']('foot', 1.3, 1.6, 0.8, M['HullDark'], segs=16, center=c['G'](fx, 0, fz))
+            beams.append(foot)
+            c['collider'](fx, fz, 1.5)
+        ring = c['lathe']('topring', [(R_TOP - 0.3, -0.7), (R_TOP + 1.2, -0.7), (R_TOP + 1.2, 0.7), (R_TOP - 0.3, 0.7)], M['Hull'], segs=96, smooth=False)
+        ring.location = (0, 0, H_TOP)
+        beams.append(ring)
+        for z, rr in ((-0.72, R_TOP + 0.4), (0.72, R_TOP + 0.4)):
+            gr = c['lathe']('ringglow', [(rr - 0.06, z), (rr + 0.06, z)], M['GlowCyan'], segs=96, smooth=False)
+            gr.location = (0, 0, H_TOP)
+            beams.append(gr)
+        mid = c['lathe']('midring', [(19.6, -0.35), (20.4, -0.35), (20.4, 0.35), (19.6, 0.35)], M['Hull'], segs=128, smooth=False)
+        mid.location = (0, 0, 14.0)
+        beams.append(mid)
+        mg = c['lathe']('midglow', [(19.55, -0.05), (19.55, 0.05)], M['GlowPink'], segs=128, smooth=False)
+        mg.location = (0, 0, 14.0)
+        beams.append(mg)
+        c['static'](c['join'](beams, 'LobbyCanopy'))
+        # stendardi appesi all'anello intermedio
+        banners = []
+        for k in range(6):
+            a = math.radians(15 + 60 * k)
+            px, pz = math.sin(a) * 20.0, math.cos(a) * 20.0
+            b = c['box']('banner', (1.6, 0.06, 5.0), (0, 0, 0), M['BannerBlue'])
+            em = c['lathe']('emblem', [(0.42, -0.04), (0.55, -0.04), (0.55, 0.04), (0.42, 0.04)], M['GlowCyan'], segs=24, smooth=False)
+            em.data.transform(Matrix.Translation((0, -0.05, 0.9)) @ Matrix.Rotation(PI / 2, 4, 'X'))
+            dot = c['box']('emdot', (0.24, 0.06, 0.24), (0, -0.05, 0.9), M['GlowCyan'])
+            o = c['join']([b, em, dot], 'banner')
+            c['place'](o, px, 11.0, pz, math.atan2(-px, -pz))
+            banners.append(o)
+        for b in banners:
+            c['static'](b)
+        # maxischermi: ESPLORA, GIOCA, CREA, SOCIAL
+        for sid, label, deg in (('explore', 'Esplora', 255), ('play', 'Gioca', 195), ('create', 'Crea', 135), ('social', 'Social', 75)):
+            a = math.radians(deg)
+            self.screen(sid, label, math.sin(a) * 27.0, math.cos(a) * 27.0)
+        # strisce di luce curve nel pavimento
+        strips = []
+        for k in range(12):
+            a0 = math.radians(k * 30 + 8)
+            pts = []
+            for i in range(20):
+                t = i / 19
+                rr = 7.2 + t * 16.2
+                aa = a0 + math.sin(t * PI) * 0.35 * (1 if k % 2 else -1)
+                pts.append(c['G'](math.sin(aa) * rr, 0.08, math.cos(aa) * rr))
+            st = c['curve_strand']('fstrip', pts, 0.045, 0.045, bulge=0, res=2, bevel_res=1)
+            for v in st.data.vertices:
+                v.co.z = max(v.co.z, 0.075)
+            c['set_material'](st, M['GlowCyan'] if k % 3 else M['Lantern'])
+            strips.append(st)
+        c['join'](strips, 'FloorStrips')
+        # logo olografico (disegnato nel gioco)
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new('UVMap')
+        W, Hh = 14.0, 6.0
+        vs = [bm.verts.new(p) for p in ((-W / 2, 0, -Hh / 2), (W / 2, 0, -Hh / 2), (W / 2, 0, Hh / 2), (-W / 2, 0, Hh / 2))]
+        face = bm.faces.new(vs)
+        for loop, uv in zip(face.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            loop[uvl].uv = uv
+        logo = c['mesh_object']('Logo_holo', bm, M['LogoScreen'], smooth=False)
+        c['place'](logo, 0, 15.5, -11.0, 0.0)
+        self.build_waterfall()
+
+    def build_waterfall(self):
+        c, M = self.c, self.M
+        a = math.radians(112)
+        gx, gz = math.sin(a) * 44, math.cos(a) * 44
+        f = math.atan2(-gx, -gz)
+        # roccia sospesa da cui cade l'acqua
+        rock = c['blob']('wfrock', 5.5, M['Rock'], subdiv=3, rough=0.35, seed=4242, squash=0.55)
+        for v in rock.data.vertices:
+            if v.co.z < 0:
+                v.co.z *= 2.4
+        rock.data.update()
+        rock.location = c['G'](gx, 19.0, gz)
+        top = c['blob']('wftop', 5.2, M['Grass'], subdiv=3, rough=0.12, seed=4243, squash=0.12)
+        top.location = c['G'](gx, 21.2, gz)
+        parts = [rock, top]
+        for k in range(3):
+            p = self.tropical_plant(4300 + k)
+            p.scale = (2.2, 2.2, 2.2)
+            p.location = c['G'](gx + math.cos(k * 2.1) * 2.5, 21.4, gz + math.sin(k * 2.1) * 2.5)
+            parts.append(p)
+        isle = c['static'](c['join'](parts, 'WaterfallRock'))
+        # vasca alla base con rocce
+        pool = c['lathe']('pool', [(5.6, 0), (6.0, 0.15), (6.0, 0.6), (5.6, 0.7), (5.4, 0.3)], M['Rock'], segs=32, smooth=False)
+        pool.location = c['G'](gx, 0, gz)
+        c['static'](pool)
+        water = c['disc']('Water_lake_pool', 0, 5.5, 4, 48, M['Water'])
+        water.location = c['G'](gx, 0.42, gz)
+        c['collider'](gx, gz, 6.0)
+        # lama d'acqua verticale (animata nel gioco)
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new('UVMap')
+        W = 3.2
+        n = 12
+        verts = []
+        for i in range(n + 1):
+            t = i / n
+            z = 0.4 + t * 17.2
+            bow = math.sin(t * PI) * 0.6
+            verts.append((bm.verts.new((-W / 2 * (1 - 0.3 * t), -bow, z)), bm.verts.new((W / 2 * (1 - 0.3 * t), -bow, z)), t))
+        for i in range(n):
+            a1, b1, t1 = verts[i]
+            a2, b2, t2 = verts[i + 1]
+            fce = bm.faces.new([a1, b1, b2, a2])
+            for loop, uv in zip(fce.loops, ((0, t1), (1, t1), (1, t2), (0, t2))):
+                loop[uvl].uv = uv
+        wf = c['mesh_object']('Waterfall', bm, M['Waterfall'], smooth=True)
+        wx, wz = self.local(gx, gz, f, 0, 0.5)
+        c['place'](wf, wx, 0, wz, f)
+        self.L['waterfall'] = [round(gx, 2), round(gz, 2)]
+
+    World.tropical_plant = tropical_plant
+    World.arc_beam = arc_beam
+    World.screen = screen
+    World.build_lobby = build_lobby
+    World.build_waterfall = build_waterfall

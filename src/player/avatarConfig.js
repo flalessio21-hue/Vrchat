@@ -31,12 +31,14 @@ export const OPTIONS = {
     ['jacket', 'Giacca'],
     ['tshirt', 'Maglietta'],
     ['cyber', 'Tuta cyber'],
+    ['space', 'Tuta spaziale'],
   ],
   bottom: [
     ['pants', 'Pantaloni'],
     ['shorts', 'Shorts'],
     ['skirt', 'Gonna'],
     ['cargo', 'Cargo'],
+    ['space', 'Tuta spaziale'],
   ],
   shoes: [
     ['sneakers', 'Sneakers'],
@@ -54,6 +56,7 @@ export const OPTIONS = {
     ['visor', 'Visore'],
     ['crown', 'Corona'],
     ['backpack', 'Zaino'],
+    ['helmet', 'Casco spaziale'],
   ],
   bodyType: [
     ['slim', 'Snello'],

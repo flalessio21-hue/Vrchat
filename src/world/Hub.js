@@ -70,8 +70,8 @@ export class Hub {
       })),
     ];
 
-    scene.background = new THREE.Color(0xe7a0b0);
-    scene.fog = new THREE.Fog(0x8a6a9a, 110, 640);
+    scene.background = new THREE.Color(0x1a1840);
+    scene.fog = new THREE.Fog(0x3a3468, 90, 600);
 
     this.buildLights();
     this.buildSky();
@@ -79,7 +79,6 @@ export class Hub {
     this.buildCloudSea();
     this.setupWorld(gltf.scene);
     this.buildGrass();
-    this.buildFountainFx();
     this.buildCampfire();
     this.buildSnowfall();
     this.buildBalloons();
@@ -92,8 +91,8 @@ export class Hub {
 
   // ------------------------------------------------------------- luci
   buildLights() {
-    this.group.add(new THREE.HemisphereLight(0xc4d0ff, 0x9a6a78, 0.9));
-    const sun = new THREE.DirectionalLight(0xffd6b0, 2.8);
+    this.group.add(new THREE.HemisphereLight(0x6a78c8, 0x2a2238, 0.75));
+    const sun = new THREE.DirectionalLight(0xffb48a, 1.9);
     sun.position.copy(SUN_DIR).multiplyScalar(60);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -104,7 +103,7 @@ export class Hub {
     sun.shadow.radius = 3;
     this.group.add(sun, sun.target);
     this.sun = sun;
-    const fill = new THREE.DirectionalLight(0x9fb6ff, 0.5);
+    const fill = new THREE.DirectionalLight(0x7f9cff, 0.55);
     fill.position.set(40, 20, 50);
     this.group.add(fill);
     for (const l of this.layout.lights) {
@@ -141,9 +140,9 @@ export class Hub {
         void main() {
           vec3 d = normalize(vDir);
           float h = d.y;
-          vec3 zenith = vec3(0.04, 0.05, 0.2);
-          vec3 mid = vec3(0.22, 0.2, 0.5);
-          vec3 horizon = vec3(0.98, 0.5, 0.55);
+          vec3 zenith = vec3(0.015, 0.03, 0.12);
+          vec3 mid = vec3(0.12, 0.13, 0.38);
+          vec3 horizon = vec3(0.95, 0.42, 0.55);
           vec3 low = vec3(0.86, 0.58, 0.78);
           vec3 col = mix(horizon, mid, smoothstep(0.02, 0.28, h));
           col = mix(col, zenith, smoothstep(0.28, 0.85, h));
@@ -157,7 +156,7 @@ export class Hub {
             float c = fbm(uv * 1.3);
             float band = smoothstep(0.02, 0.12, h) * (1.0 - smoothstep(0.35, 0.6, h));
             float cl = smoothstep(0.52, 0.62, c) * band;
-            vec3 cloudCol = mix(vec3(0.62, 0.45, 0.78), vec3(1.0, 0.78, 0.72), pow(sd, 2.0) * 0.8 + 0.2);
+            vec3 cloudCol = mix(vec3(0.32, 0.26, 0.55), vec3(1.0, 0.55, 0.6), pow(sd, 1.5) * 0.9 + 0.1);
             cloudCol = mix(cloudCol, vec3(1.0, 0.9, 0.85), smoothstep(0.62, 0.75, c) * 0.4);
             col = mix(col, cloudCol, cl * 0.85);
           }
@@ -219,7 +218,7 @@ export class Hub {
     ground.position.y = -2;
     envScene.add(ground);
     this.scene.environment = pmrem.fromScene(envScene, 0.04).texture;
-    this.scene.environmentIntensity = 0.55;
+    this.scene.environmentIntensity = 0.85;
     pmrem.dispose();
   }
 
@@ -270,7 +269,7 @@ export class Hub {
       if (o.geometry.attributes.color) mat.vertexColors = true;
       if (mat.name.startsWith('Glow') || mat.name === 'Lantern' || mat.name === 'Crystal' || mat.name === 'GemGreen') {
         mat.toneMapped = true;
-        mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 2.5);
+        mat.emissiveIntensity = Math.min(mat.emissiveIntensity, mat.name === 'Lantern' ? 1.5 : 2.2);
       }
       if (mat.name.startsWith('Leaves') || mat.name === 'Bush') {
         mat.roughness = 0.9;
@@ -318,6 +317,20 @@ export class Hub {
         return;
       }
       if (name === 'Tiles') this.floor = o;
+      if (name === 'Holo_disc') {
+        o.material = this.holoMaterial();
+        o.renderOrder = 3;
+        return;
+      }
+      if (mat.name === 'Glass') {
+        o.material = new THREE.MeshPhysicalMaterial({ color: 0x9fd8ff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
+        return;
+      }
+      if (mat.name === 'ShopGlow' || mat.name === 'ShopGlowDim') {
+        o.material = this.shopWindowMaterial(mat.name === 'ShopGlowDim');
+        o.castShadow = false;
+        return;
+      }
       if (name.startsWith('Board_neon_')) {
         const k = Number(name.slice(11));
         const tex = neonSign((this.layout.signs || [])[k] || 'OASIS', k);
@@ -401,7 +414,8 @@ export class Hub {
 
     // etichette sopra i portali
     for (const p of this.portals) {
-      const label = makeTextSprite(p.world.name, { fontSize: 64, height: 0.75, glow: p.world.color });
+      const label = makeTextSprite(p.world.name, { fontSize: 64, height: 0.6, glow: p.world.color });
+      label.visible = false;
       label.position.copy(p.position).setY(9.2);
       this.group.add(label);
     }
@@ -810,6 +824,7 @@ export class Hub {
       clipBias: 0.003,
     });
     mirror.position.set(...center);
+    mirror.rotation.y = this.layout.mirror.facing || 0;
     this.group.add(mirror);
     this.mirror = mirror;
     this.mirrorOn = true;
@@ -988,6 +1003,62 @@ export class Hub {
         g.position.set(Math.sin(a) * R, h0 + Math.sin(t * 0.3 + i) * 3, Math.cos(a) * R);
         flame.scale.setScalar(0.8 + Math.random() * 0.4);
       });
+    });
+  }
+
+  /** Ologramma della pedana: anelli concentrici che pulsano e ruotano. */
+  holoMaterial() {
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} ',
+      fragmentShader: /* glsl */ `
+        varying vec2 vUv; uniform float uTime;
+        void main(){
+          vec2 p = (vUv - 0.5) * 2.0;
+          float r = length(p);
+          float a = atan(p.y, p.x);
+          float rings = smoothstep(0.035, 0.0, abs(fract(r * 4.0 - uTime * 0.25) - 0.5) - 0.44);
+          float ticks = step(0.5, fract(a * 12.0 / 6.2832 + uTime * 0.1)) * smoothstep(0.03, 0.0, abs(r - 0.82));
+          float arc = smoothstep(0.02, 0.0, abs(r - 0.6)) * step(0.35, fract(a / 6.2832 - uTime * 0.15));
+          float core = smoothstep(0.25, 0.0, r);
+          float v = (rings * 0.6 + ticks + arc + core * 0.8) * (1.0 - smoothstep(0.92, 1.0, r));
+          gl_FragColor = vec4(vec3(0.35, 0.85, 1.0) * v * 1.4, v);
+        }`,
+    });
+    this.animated.push((dt, t) => (mat.uniforms.uTime.value = t));
+    return mat;
+  }
+
+  /** Vetrine dei negozi: interni caldi con ripiani e sagome, senza texture esterne. */
+  shopWindowMaterial(dim) {
+    return new THREE.ShaderMaterial({
+      toneMapped: false,
+      uniforms: { uDim: { value: dim ? 1 : 0 } },
+      vertexShader: 'varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0);} ',
+      fragmentShader: /* glsl */ `
+        varying vec2 vUv; varying vec3 vW; uniform float uDim;
+        ${NOISE_GLSL}
+        void main(){
+          float ang = atan(vW.x, vW.z) * 40.0;
+          float bay = floor(ang);
+          float h = hash(vec2(bay, 1.0));
+          vec3 warm = mix(vec3(1.0, 0.62, 0.32), vec3(1.0, 0.82, 0.55), h);
+          vec3 cool = mix(vec3(0.25, 0.55, 1.0), vec3(0.5, 0.85, 1.0), h);
+          vec3 base = mix(warm, cool, uDim * 0.7 + step(0.8, h) * 0.5);
+          float y = vUv.y;
+          float shelves = step(0.85, fract(y * 4.0)) * 0.5;
+          float items = step(0.55, noise(vec2(ang * 3.0, floor(y * 4.0) * 7.0))) * step(fract(y * 4.0), 0.8) * 0.6;
+          float lightTop = smoothstep(0.6, 1.0, y) * 0.6;
+          vec3 col = base * (0.35 + lightTop + items * 0.5) + shelves * base * 0.3;
+          col *= mix(1.0, 0.6, uDim);
+          gl_FragColor = vec4(col * 0.62, 1.0);
+          #include <colorspace_fragment>
+        }`,
     });
   }
 

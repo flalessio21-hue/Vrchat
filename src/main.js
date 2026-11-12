@@ -49,7 +49,7 @@ startBtn.textContent = 'Entra nel mondo';
 
 const hub = new Hub(engine.scene, engine.renderer);
 
-let avatarConfig = sanitizeAvatar(load('avatar.v2', DEFAULT_AVATAR));
+let avatarConfig = sanitizeAvatar(load('avatar.v3', DEFAULT_AVATAR));
 const avatar = new Avatar(avatarConfig);
 const player = new PlayerController(engine, avatar, hub);
 const input = new InputManager(canvas, engine.renderer);
@@ -115,7 +115,7 @@ const editor = new AvatarEditor({
     avatarConfig = sanitizeAvatar(cfg);
     avatar.apply(avatarConfig);
     hud.setName(avatarConfig.name);
-    save('avatar.v2', avatarConfig);
+    save('avatar.v3', avatarConfig);
   },
   onOpen: () => {
     player.preview = true;

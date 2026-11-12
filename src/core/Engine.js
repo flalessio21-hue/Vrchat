@@ -3,6 +3,26 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+
+/** Correzione colore "cinematografica": ombre fredde, luci calde, contrasto e vignetta. */
+const GradeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);} ',
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(c, c * vec3(0.86, 0.95, 1.12), (1.0 - smoothstep(0.0, 0.5, l)) * 0.6);
+      c = mix(c, c * vec3(1.08, 1.0, 0.9), smoothstep(0.5, 1.0, l) * 0.4);
+      c = (c - 0.5) * 1.08 + 0.5;
+      c = mix(vec3(l), c, 1.12);
+      vec2 d = vUv - 0.5;
+      c *= 1.0 - dot(d, d) * 0.9;
+      gl_FragColor = vec4(max(c, 0.0), 1.0);
+    }`,
+};
 
 const isMobile = matchMedia('(pointer: coarse)').matches;
 
@@ -21,7 +41,7 @@ export class Engine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.92;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.xr.enabled = true;
@@ -43,9 +63,10 @@ export class Engine {
     this.composer = new EffectComposer(this.renderer, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     const res = new THREE.Vector2(window.innerWidth, window.innerHeight).multiplyScalar(isMobile ? 0.5 : 1);
-    this.bloom = new UnrealBloomPass(res, 0.5, 0.45, 0.93);
+    this.bloom = new UnrealBloomPass(res, 0.85, 0.55, 0.78);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
+    this.composer.addPass(new ShaderPass(GradeShader));
 
     this.clock = new THREE.Clock();
     this.updaters = [];

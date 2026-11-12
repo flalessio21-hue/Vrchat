@@ -7,9 +7,11 @@ import { loadGLTF } from '../core/assets.js';
 import { makeNameTag } from '../world/textSprite.js';
 
 const URL = 'models/avatar.glb';
-const OUTLINE = 0.009; // contorno spesso: look da cartone animato
-// gambe più corte: proporzioni "chibi" (scala delle cosce e abbassamento del bacino)
-const LEG_SCALE = 0.84;
+const OUTLINE = 0.009;
+const OUTLINES = false; // resa realistica: niente contorno da cartone
+// proporzioni realistiche: gambe intere, testa ridotta (il modello ha la testa grande)
+const LEG_SCALE = 1.0;
+const HEAD_SCALE = 0.84;
 const LEG_DROP = 0.86 * (1 - LEG_SCALE);
 
 // varianti presenti nel modello Blender (nome oggetto -> opzione)
@@ -31,7 +33,8 @@ const EMOTES = ['wave', 'dance', 'cheer', 'sit', 'floor'];
  * shine: riflesso "ad anello" tipico dei capelli anime.
  */
 function avatarToon(color, opts = {}, shine = false) {
-  const m = new THREE.MeshToonMaterial({ color, gradientMap: toonGradient(true), ...opts });
+  // materiale fisico (PBR): luce realistica, riflessi dell'ambiente
+  const m = new THREE.MeshStandardMaterial({ color, roughness: shine ? 0.5 : 0.62, metalness: 0.0, envMapIntensity: 1.1, ...opts });
   m.userData.rim = { value: new THREE.Color(0xffc8e8) };
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uRim = m.userData.rim;
@@ -40,14 +43,14 @@ function avatarToon(color, opts = {}, shine = false) {
       .replace(
         '#include <opaque_fragment>',
         `float rimF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
-         outgoingLight += uRim * rimF * 0.35;
+         outgoingLight += uRim * rimF * 0.12;
          ${shine ? `float hs = dot(normal, normalize(vec3(0.0, 0.75, 0.66)));
          float band = smoothstep(0.80, 0.86, hs) * (1.0 - smoothstep(0.92, 0.97, hs));
          outgoingLight += vec3(1.0) * band * 0.22;` : ''}
          #include <opaque_fragment>`,
       );
   };
-  m.customProgramCacheKey = () => (shine ? 'toon-shine' : 'toon');
+  m.customProgramCacheKey = () => (shine ? 'pbr-shine' : 'pbr');
   return m;
 }
 
@@ -83,12 +86,12 @@ export class Avatar {
       Bottom: avatarToon(0xffffff),
       Shoes: avatarToon(0xffffff),
       Sole: avatarToon(0xf0eef5),
-      Dark: avatarToon(0x2a2433),
+      Dark: avatarToon(0x22202a, { roughness: 0.45, metalness: 0.3 }),
       White: avatarToon(0xffffff),
       Pink: avatarToon(0xffb3c8),
-      Gold: Object.assign(avatarToon(0xffcf6a), { emissive: new THREE.Color(0x553300) }),
+      Gold: avatarToon(0xffcf6a, { metalness: 1.0, roughness: 0.3 }),
       Visor: new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, shininess: 120, emissiveIntensity: 0.6, depthWrite: false }),
-      Accent: new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: toonGradient(true), emissiveIntensity: 1.6 }),
+      Accent: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, emissiveIntensity: 2.2 }),
     };
 
     // viso: 3 texture (normale, occhi chiusi, felice)
@@ -120,7 +123,7 @@ export class Avatar {
       o.castShadow = !npc;
     });
     // contorni (guscio invertito) anche per i mesh con scheletro; i passanti ne fanno a meno (prestazioni)
-    for (const m of npc ? [] : meshes) {
+    for (const m of npc || !OUTLINES ? [] : meshes) {
       if (m.material === this.faceMat || m.material === this.mats.Accent || m.material === this.mats.Visor) continue;
       const o = m.isSkinnedMesh ? new THREE.SkinnedMesh(m.geometry, outlineMaterial(OUTLINE, 0x2a1a38)) : new THREE.Mesh(m.geometry, outlineMaterial(OUTLINE, 0x2a1a38));
       if (m.isSkinnedMesh) o.bind(m.skeleton, m.bindMatrix);
@@ -274,7 +277,7 @@ export class Avatar {
     const chest = this.bones.chest;
     if (chest) chest.scale.set(this.bodyWidth, 1, this.bodyWidth);
     const head = this.bones.head;
-    if (head) head.scale.setScalar(1 / this.bodyWidth ** 0.5);
+    if (head) head.scale.setScalar(HEAD_SCALE / this.bodyWidth ** 0.5);
 
     // capelli e coda: molla smorzata
     const acc = (speed - this.prevSpeed) / Math.max(dt, 1e-3);

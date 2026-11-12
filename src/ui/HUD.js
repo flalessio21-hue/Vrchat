@@ -115,7 +115,7 @@ export class HUD {
     // piazza
     ctx.fillStyle = '#e8e0f0';
     ctx.beginPath();
-    ctx.arc(...P(0, 0), 24 * k, 0, Math.PI * 2);
+    ctx.arc(...P(0, 0), (w.layout.plazaRadius || 24) * k, 0, Math.PI * 2);
     ctx.fill();
     // edifici
     ctx.fillStyle = '#3a2d5a';

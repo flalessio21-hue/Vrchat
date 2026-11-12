@@ -132,7 +132,7 @@ def H(x, z):
     h = lerp(h, target, smooth(LAKE_R + 24, LAKE_R + 12, dl))
     # piazza centrale piatta
     h = lerp(h, 0.0, smooth(PLAZA_FLAT + 6, PLAZA_FLAT, r))
-    if r < 24.3:
+    if r < 47:
         h = -0.03
     return h
 
@@ -196,8 +196,9 @@ def terrain_color(x, z):
     cs = smooth(22, 18, math.hypot(x - CASTLE[0], z - CASTLE[1]))
     col = col.lerp(Vector((0.55, 0.52, 0.5)), cs)
     g *= 1 - cs
-    if r < 25:
+    if r < 47.5:
         g = 0.0
+        col = Vector((0.13, 0.13, 0.17))
     if h < -0.55:
         g = 0.0
     return srgb(col), max(0.0, min(1.0, g))

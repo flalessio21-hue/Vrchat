@@ -627,85 +627,8 @@ def install(World):
 
     # ------------------------------------------------------------ piazza: negozi e decorazioni
     def build_plaza_extras(self):
-        c, M = self.c, self.M
-        shops = [('veicoli', 'Garage Turbo', 60, (0.3, 0.75, 1.0)), ('effetti', 'Magie & Scie', 120, (0.75, 0.45, 1.0)),
-                 ('snack', 'Gelati Stellari', 240, (1.0, 0.55, 0.7)), ('animali', 'Amici Pelosi', 300, (1.0, 0.75, 0.35))]
-        self.L['shops'] = {}
-        for sid, title, deg, color in shops:
-            a = math.radians(deg)
-            gx, gz = math.sin(a) * 19.0, math.cos(a) * 19.0
-            f = a + PI  # guarda il centro della piazza
-            # chiosco fantascientifico: bancone in metallo, pannello scuro con cornice luminosa, tettoia sospesa
-            parts = [c['box']('counter', (3.4, 0.9, 1.05), (0, -0.6, 0.53), M['Hull'], bevel=0.08, segs=2),
-                     c['box']('countertop', (3.6, 1.1, 0.08), (0, -0.6, 1.08), M['HullDark']),
-                     c['box']('counterglow', (3.42, 0.05, 0.06), (0, -1.07, 0.9), M['GlowCyan']),
-                     c['box']('back', (3.6, 0.25, 2.9), (0, 1.1, 1.45), M['HullDark'], bevel=0.05, segs=1)]
-            panel = c['box']('panel', (3.0, 0.06, 1.6), (0, 0.96, 1.9), M['Canvas'])
-            tint(panel, tuple(0.35 + 0.65 * x for x in color))
-            parts.append(panel)
-            for sx in (-1, 1):
-                parts.append(c['box']('frameglow', (0.06, 0.08, 2.7), (sx * 1.78, 0.98, 1.45), M['GlowCyan']))
-                parts.append(c['box']('pillar', (0.22, 0.22, 3.2), (sx * 1.85, 1.1, 1.6), M['Hull'], bevel=0.04, segs=1))
-            parts.append(c['box']('canopy', (4.2, 2.7, 0.14), (0, -0.2, 3.25), M['Hull'], bevel=0.05, segs=1))
-            parts.append(c['box']('canopyglow', (4.22, 0.06, 0.06), (0, -1.55, 3.22), M['GlowCyan']))
-            for sx in (-1, 1):  # piedistalli per mostrare la merce
-                parts.append(c['cylinder']('ped', 0.42, 0.5, 0.8, M['Stone'], segs=16, center=(sx * 2.6, -1.9, 0)))
-                parts.append(c['cylinder']('pedglow', 0.44, 0.44, 0.04, M['GlowCyan'], segs=16, center=(sx * 2.6, -1.9, 0.8), smooth=False))
-            o = c['static'](c['join'](parts, f'Shop_{sid}'))
-            c['place'](o, gx, 0, gz, f)
-            sxp, szp = self.local(gx, gz, f, 0, -1.08)
-            self.text_board(f'Board_shop_{sid}', title, sxp, 3.65, szp, f, w=3.2, h=0.8, style='shop')
-            self.box_collider(*self.local(gx, gz, f, 0, 0.1), 1.9, 1.25, f)
-            displays = []
-            for sx in (-1, 1):
-                dx, dz = self.local(gx, gz, f, sx * 2.6, 1.9)
-                c['collider'](dx, dz, 0.55)
-                displays.append([round(dx, 3), 0.84, round(dz, 3)])
-            kx, kz = self.local(gx, gz, f, 0, 0.35)
-            ix, iz = self.local(gx, gz, f, 0, 1.9)
-            self.L['shops'][sid] = {'title': title, 'displays': displays, 'keeper': [round(kx, 3), 0, round(kz, 3), round(f, 4)]}
-            self.L['interactables'].append({'type': 'shop', 'shop': sid, 'point': [round(ix, 3), 0, round(iz, 3)], 'radius': 1.8, 'label': title})
-        # fioriere e stendardi attorno alla piazza
-        parts = []
-        for k in range(24):
-            a = k / 24 * 2 * PI + 0.13
-            deg = math.degrees(a) % 360
-            if any(abs((deg - d + 180) % 360 - 180) < 9 for d in (30, 90, 150, 210, 270, 330, 0, 180, 60, 120, 240, 300)):
-                continue
-            px, pz = math.sin(a) * 22.6, math.cos(a) * 22.6
-            planter = c['lathe']('planter', [(0.95, 0), (1.0, 0.1), (1.0, 0.55), (0.92, 0.6), (0.85, 0.5)], M['HullDark'], segs=24)
-            planter.location = c['G'](px, 0, pz)
-            parts.append(planter)
-            rim = c['lathe']('prim', [(1.0, 0.56), (1.03, 0.58), (1.03, 0.62), (1.0, 0.64)], M['GlowCyan'], segs=24, smooth=False)
-            rim.location = c['G'](px, 0, pz)
-            parts.append(rim)
-            plant = self.tropical_plant(k + 700)
-            plant.location = c['G'](px, 0.5, pz)
-            parts.append(plant)
-            if k % 2 == 0:
-                orb = c['blob']('orb', 0.32, M['OrbLamp'], subdiv=2, rough=0.0, seed=k)
-                orb.location = c['G'](px + math.cos(a) * 0.55, 0.85, pz - math.sin(a) * 0.55)
-                parts.append(orb)
-                self.L.setdefault('orbs', []).append([round(px, 2), 0.95, round(pz, 2)])
-            c['collider'](px, pz, 0.85)
-        for d in (30, 90, 150, 210, 270, 330):
-            for s in (-1, 1):
-                a = math.radians(d) + s * 0.1
-                px, pz = math.sin(a) * 23.4, math.cos(a) * 23.4
-                p = c['G'](px, 0, pz)
-                parts.append(c['cylinder']('fpole', 0.06, 0.08, 4.6, M['Metal'], segs=8, center=p))
-                fl = c['box']('flag', (0.9, 0.05, 1.8), p + Vector((0, 0, 3.4)), M['BannerBlue'] if s > 0 else M['BannerRed'])
-                fl.data.transform(Matrix.Translation(-p - Vector((0, 0, 3.4))))
-                fl.data.transform(Matrix.Translation(p + Vector((0, 0, 3.4))) @ Matrix.Rotation(-a, 4, 'Z') @ Matrix.Translation((0.45, 0, 0)))
-                parts.append(fl)
-                c['collider'](px, pz, 0.12)
-        c['static'](c['join'](parts, 'PlazaDecor'))
-        spots = []
-        for k in range(14):
-            a = k / 14 * 2 * PI
-            d = 13.5 + (k % 3) * 1.6
-            spots.append([round(math.sin(a) * d, 2), 0.0, round(math.cos(a) * d, 2)])
-        self.L.setdefault('npcSpots', {})['plaza'] = spots
+        """Sostituito dall'atrio (world_atrium.py)."""
+        return
 
     World.build_plaza_extras = build_plaza_extras
 
@@ -805,14 +728,18 @@ def install_lobby(World):
         c['set_material'](strip, glow)
         return c['join']([beam, strip], name)
 
-    def screen(self, sid, label, gx, gz, w=8.0, h=4.2, base=3.2):
+    def screen(self, sid, label, gx, gz, w=8.0, h=4.2, base=3.2, legs=True):
         c, M = self.c, self.M
         f = math.atan2(-gx, -gz)
         parts = [c['box']('frame', (w + 0.5, 0.5, h + 0.5), (0, 0.15, base + h / 2), M['HullDark'], bevel=0.08, segs=1),
-                 c['box']('glowtop', (w + 0.52, 0.08, 0.08), (0, -0.12, base + h + 0.26), M['GlowCyan']),
-                 c['box']('glowbot', (w + 0.52, 0.08, 0.08), (0, -0.12, base - 0.26), M['GlowCyan'])]
-        for sx in (-1, 1):
-            parts.append(c['box']('leg', (0.5, 0.5, base), (sx * (w / 2 - 0.6), 0.15, base / 2), M['Hull'], bevel=0.06, segs=1))
+                 c['box']('glowtop', (w + 0.52, 0.08, 0.08), (0, -0.12, base + h + 0.26), M['ArchGlow']),
+                 c['box']('glowbot', (w + 0.52, 0.08, 0.08), (0, -0.12, base - 0.26), M['ArchGlow'])]
+        if legs:
+            for sx in (-1, 1):
+                parts.append(c['box']('leg', (0.5, 0.5, base), (sx * (w / 2 - 0.6), 0.15, base / 2), M['Hull'], bevel=0.06, segs=1))
+        else:
+            for sx in (-1, 1):
+                parts.append(c['box']('strut', (0.35, 0.35, 2.0), (sx * (w / 2 - 1.0), 0.3, base - 1.0), M['Hull'], bevel=0.04, segs=1))
         o = c['static'](c['join'](parts, f'ScreenFrame_{sid}'))
         c['place'](o, gx, 0, gz, f)
         bm = bmesh.new()
@@ -823,11 +750,12 @@ def install_lobby(World):
             loop[uvl].uv = uv
         scr = c['mesh_object'](f'Screen_{sid}', bm, M['Screen'], smooth=False)
         c['place'](scr, gx, 0, gz, f)
-        for sx in (-1, 1):
-            px, pz = self.local(gx, gz, f, sx * (w / 2 - 0.6), -0.15)
-            c['collider'](px, pz, 0.45)
-        ix, iz = self.local(gx, gz, f, 0, 2.6)
-        self.L['interactables'].append({'type': 'screen', 'screen': sid, 'point': [round(ix, 2), 0, round(iz, 2)], 'radius': 3.0, 'label': label})
+        if legs:
+            for sx in (-1, 1):
+                px, pz = self.local(gx, gz, f, sx * (w / 2 - 0.6), -0.15)
+                c['collider'](px, pz, 0.45)
+            ix, iz = self.local(gx, gz, f, 0, 2.6)
+            self.L['interactables'].append({'type': 'screen', 'screen': sid, 'point': [round(ix, 2), 0, round(iz, 2)], 'radius': 3.0, 'label': label})
         self.L.setdefault('screens', {})[sid] = label
 
     def build_lobby(self):
@@ -906,32 +834,34 @@ def install_lobby(World):
 
     def build_waterfall(self):
         c, M = self.c, self.M
-        a = math.radians(112)
-        gx, gz = math.sin(a) * 44, math.cos(a) * 44
+        a = math.radians(120)
+        gx, gz = math.sin(a) * 27, math.cos(a) * 27
         f = math.atan2(-gx, -gz)
         # roccia sospesa da cui cade l'acqua
-        rock = c['blob']('wfrock', 5.5, M['Rock'], subdiv=3, rough=0.35, seed=4242, squash=0.55)
+        rock = c['blob']('wfrock', 4.3, M['Rock'], subdiv=3, rough=0.35, seed=4242, squash=0.55)
         for v in rock.data.vertices:
             if v.co.z < 0:
                 v.co.z *= 2.4
         rock.data.update()
         rock.location = c['G'](gx, 19.0, gz)
-        top = c['blob']('wftop', 5.2, M['Grass'], subdiv=3, rough=0.12, seed=4243, squash=0.12)
+        top = c['blob']('wftop', 4.1, M['Grass'], subdiv=3, rough=0.12, seed=4243, squash=0.12)
         top.location = c['G'](gx, 21.2, gz)
         parts = [rock, top]
         for k in range(3):
             p = self.tropical_plant(4300 + k)
             p.scale = (2.2, 2.2, 2.2)
-            p.location = c['G'](gx + math.cos(k * 2.1) * 2.5, 21.4, gz + math.sin(k * 2.1) * 2.5)
+            p.location = c['G'](gx + math.cos(k * 2.1) * 2.0, 21.4, gz + math.sin(k * 2.1) * 2.0)
             parts.append(p)
         isle = c['static'](c['join'](parts, 'WaterfallRock'))
         # vasca alla base con rocce
-        pool = c['lathe']('pool', [(5.6, 0), (6.0, 0.15), (6.0, 0.6), (5.6, 0.7), (5.4, 0.3)], M['Rock'], segs=32, smooth=False)
+        pool = c['lathe']('pool', [(4.6, 0), (5.0, 0.15), (5.0, 0.6), (4.6, 0.7), (4.4, 0.3)], M['HullDark'], segs=48, smooth=False)
         pool.location = c['G'](gx, 0, gz)
         c['static'](pool)
-        water = c['disc']('Water_lake_pool', 0, 5.5, 4, 48, M['Water'])
+        water = c['disc']('Water_lake_pool', 0, 4.5, 4, 48, M['Water'])
         water.location = c['G'](gx, 0.42, gz)
-        c['collider'](gx, gz, 6.0)
+        c['collider'](gx, gz, 5.0)
+        glow = c['lathe']('poolglow', [(5.02, 0.35), (5.02, 0.5)], M['Lantern'], segs=48, smooth=False)
+        glow.location = c['G'](gx, 0, gz)
         # lama d'acqua verticale (animata nel gioco)
         bm = bmesh.new()
         uvl = bm.loops.layers.uv.new('UVMap')

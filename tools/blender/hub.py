@@ -36,8 +36,8 @@ rng = random.Random(7)
 WORLDS = ['arena', 'music', 'racing', 'school', 'quest', 'market']
 WORLD_COLORS = ['#ff4d6d', '#ff3df2', '#ffb02e', '#7dff6a', '#8a7bff', '#39e6ff']
 
-PLAZA_R = 24.0
-ISLAND_R = 50.5
+PLAZA_R = 37.0  # pavimento dell'atrio (dentro l'anello di edifici)
+ISLAND_R = 66.0
 PORTAL_R = 36.0
 
 
@@ -131,6 +131,9 @@ MAT = {
     'OrbLamp': material('OrbLamp', (1.0, 0.85, 0.6, 1), emissive=(1.0, 0.7, 0.4, 1.6)),
     'Waterfall': material('Waterfall', (0.7, 0.9, 1.0, 1), texture=True),
     'LogoScreen': material('LogoScreen', (1, 1, 1, 1), texture=True),
+    'ShopGlow': material('ShopGlow', (1.0, 0.78, 0.5, 1), emissive=(1.0, 0.62, 0.32, 1.6)),
+    'ShopGlowDim': material('ShopGlowDim', (0.6, 0.75, 1.0, 1), emissive=(0.35, 0.55, 0.9, 0.7)),
+    'Glass': material('Glass', (0.6, 0.85, 1.0, 1), rough=0.05),
 }
 PORTAL_MATS = []
 for wid, col in zip(WORLDS, WORLD_COLORS):
@@ -244,11 +247,11 @@ def build_island():
     static(grout)
     bm = bmesh.new()
     tint = []
-    r = 5.6
+    r = 8.3
     ring = 0
     while r < PLAZA_R - 0.4:
-        w = 0.95
-        n = max(8, round(2 * PI * (r + w / 2) / 1.05))
+        w = 1.9
+        n = max(8, round(2 * PI * (r + w / 2) / 2.1))
         off = (ring % 2) * 0.5
         for j in range(n):
             a0 = 2 * PI * (j + off + 0.035) / n
@@ -288,32 +291,6 @@ def build_island():
     # anelli luminosi e cordolo
     curb = lathe('Curb', [(PLAZA_R - 0.35, 0.0), (PLAZA_R - 0.35, 0.12), (PLAZA_R - 0.2, 0.16), (PLAZA_R + 0.05, 0.16), (PLAZA_R + 0.2, 0.1), (PLAZA_R + 0.25, 0.0)], MAT['Hull'], segs=192)
     static(curb)
-    for rr in (12.4, PLAZA_R - 0.75):
-        lathe('GlowRing', [(rr + 0.05, 0.075), (rr - 0.05, 0.075)], MAT['GlowCyan'], segs=160, smooth=False)
-
-    # sentieri verso i portali
-    for i in range(6):
-        a = portal_angle(i)
-        bm = bmesh.new()
-        L0, L1 = PLAZA_R - 0.2, PORTAL_R - 1.0
-        steps = 9
-        stones = []
-        for k in range(steps):
-            d = L0 + (L1 - L0) * (k + 0.5) / steps
-            for s in (-1, 1):
-                w = 1.45
-                bm_s = bm_box(w - 0.08, (L1 - L0) / steps - 0.08, 0.08, (s * w / 2, 0, 0.0), bevel=0.02, segs=1)
-                me = bpy.data.meshes.new('t')
-                bm_s.to_mesh(me)
-                bm_s.free()
-                me.transform(Matrix.Translation((0, d, 0.02)))
-                bm.from_mesh(me)
-                bpy.data.meshes.remove(me)
-        path = mesh_object('Path', bm, MAT['Path'], smooth=False)
-        # il sentiero è costruito lungo +Y di Blender: lo ruotiamo verso il portale
-        path.rotation_euler = (0, 0, PI + a)
-        static(path)
-        stones.append(path)
 
     # erba alta a ciuffi e fiori sparsi sull'erba (geometria statica leggera)
     bm = bmesh.new()
@@ -323,8 +300,8 @@ def build_island():
     count = 0
     while count < 700:
         a = rng.random() * 2 * PI
-        d = PLAZA_R + 1.2 + rng.random() * (ISLAND_R - PLAZA_R - 3.5)
-        if any(abs(math.atan2(math.sin(a - portal_angle(i)), math.cos(a - portal_angle(i)))) * d < 2.2 for i in range(6)):
+        d = 48 + rng.random() * 16
+        if any(abs(math.atan2(math.sin(a - math.radians(60 * i)), math.cos(a - math.radians(60 * i)))) * d < 6 for i in range(6)):
             continue
         x, y = math.cos(a) * d, math.sin(a) * d
         count += 1
@@ -348,40 +325,17 @@ def build_island():
 
 # ------------------------------------------------------------------ fontana
 def build_fountain():
-    parts = []
-    basin = lathe('Basin', [(0, 0.05), (4.7, 0.05), (4.75, 0.3), (5.0, 0.3), (5.3, 0.36), (5.4, 0.55), (5.32, 0.66), (5.05, 0.68),
-                            (4.8, 0.62), (4.72, 0.4)], MAT['Hull'], segs=96)
-    parts.append(basin)
-    step = lathe('Step', [(5.4, 0.0), (6.3, 0.0), (6.3, 0.18), (6.1, 0.22), (5.4, 0.22)], MAT['HullDark'], segs=96)
-    parts.append(step)
-    col = lathe('Column', [(0.95, 0.3), (0.95, 0.55), (0.7, 0.75), (0.55, 1.3), (0.5, 2.0), (0.62, 2.35), (0.8, 2.5)], MAT['Hull'], segs=48)
-    parts.append(col)
-    bowl = lathe('Bowl', [(0.5, 2.45), (1.2, 2.5), (2.0, 2.8), (2.15, 3.05), (2.05, 3.12), (1.9, 3.05), (0.6, 2.85)], MAT['Hull'], segs=64)
-    parts.append(bowl)
-    gold = lathe('GoldRing', [(2.16, 3.0), (2.2, 3.05), (2.16, 3.1)], MAT['Gold'], segs=64)
-    parts.append(gold)
-    top = lathe('Top', [(0.3, 2.95), (0.3, 3.6), (0.45, 3.75), (0.2, 3.95), (0.05, 4.0)], MAT['HullDark'], segs=32)
-    parts.append(top)
-    for rr, z in ((5.42, 0.5), (6.32, 0.12), (2.2, 3.0)):
-        parts.append(lathe('FRing', [(rr, z), (rr + 0.06, z + 0.02), (rr + 0.06, z + 0.07), (rr, z + 0.09)], MAT['GlowCyan'], segs=96, smooth=False))
-    f = static(join(parts, 'Fountain'))
-    w1 = disc('Water', 0, 4.74, 10, 96, MAT['Water'], z=0.45)
-    w2 = disc('Water_top', 0, 1.95, 6, 64, MAT['Water'], z=2.98)
-    crystal = blob('Crystal', 1.0, MAT['Crystal'], subdiv=0, rough=0.0)
+    """La pedana centrale è in world_atrium.py: qui resta solo il cristallo olografico."""
     bm = bmesh.new()
-    bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.0, radius2=1.0, depth=1.6)
-    bmesh.ops.translate(bm, vec=(0, 0, -0.8), verts=bm.verts)
-    top2 = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=1.0, radius2=0.0, depth=2.0)
-    bmesh.ops.translate(bm, vec=(0, 0, 1.0), verts=top2['verts'])
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.0, radius2=0.6, depth=0.9)
+    bmesh.ops.translate(bm, vec=(0, 0, -0.45), verts=bm.verts)
+    top2 = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.6, radius2=0.0, depth=1.1)
+    bmesh.ops.translate(bm, vec=(0, 0, 0.55), verts=top2['verts'])
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-3)
-    bpy.data.objects.remove(crystal)
     crystal = mesh_object('Crystal', bm, MAT['Crystal'], smooth=False)
-    crystal.location = (0, 0, 6.0)
-    platform(0, 0, 5.4, 0.66)
-    platform(0, 0, 6.3, 0.22)
-    collider(0, 0, 4.75)
-    LAYOUT['lights'].append({'type': 'point', 'pos': [0, 6, 0], 'color': '#7fe6ff', 'intensity': 25, 'distance': 18})
-    return f, w1, w2
+    crystal.location = (0, 0, 3.4)
+    LAYOUT['lights'].append({'type': 'point', 'pos': [0, 4, 0], 'color': '#7fe6ff', 'intensity': 30, 'distance': 16})
+    return None, None, None
 
 
 # ------------------------------------------------------------------ portali
@@ -529,7 +483,7 @@ def build_mirror():
         cylinder('switchpost', 0.05, 0.06, 1.1, MAT['Metal'], segs=8, center=(3.1, 0.05, 0)),
     ]
     frame = static(join(parts, 'MirrorFrame'))
-    place(frame, 0, 0, -19.5, 0)
+    place(frame, -21.0, 0, 27.5, PI + 0.65)
     bm = bmesh.new()
     uvl = bm.loops.layers.uv.new('UVMap')
     vs = [bm.verts.new(p) for p in ((-W / 2, 0, -H / 2), (W / 2, 0, -H / 2), (W / 2, 0, H / 2), (-W / 2, 0, H / 2))]
@@ -537,11 +491,16 @@ def build_mirror():
     for loop, uv in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
         loop[uvl].uv = uv
     surf = mesh_object('MirrorSurface', bm, MAT['Mirror'], smooth=False)
-    surf.location = G(0, 1.9, -19.5 + 0.06)
-    for x in [-2.5 + k for k in range(6)]:
-        collider(x, -19.5, 0.45)
-    LAYOUT['mirror'] = {'center': [0, 1.9, -19.44], 'size': [W, H], 'switch': [3.1, 0, -18.4]}
-    LAYOUT['interactables'].append({'type': 'mirror', 'point': [3.3, 0, -18.4], 'radius': 1.8, 'label': 'Specchio on/off'})
+    surf.location = G(-21.0 + 0.06 * math.sin(0.65), 1.9, 27.5 - 0.06 * math.cos(0.65))
+    surf.rotation_euler = (0, 0, PI + 0.65)
+    fa = PI + 0.65
+    rx, rz = math.cos(fa), -math.sin(fa)
+    for t in [-2.5 + k for k in range(6)]:
+        collider(-21.0 + rx * t, 27.5 + rz * t, 0.45)
+    cx, cz = -21.0 + 0.06 * math.sin(fa), 27.5 + 0.06 * math.cos(fa)
+    sx, sz = -21.0 - rx * 3.2 + math.sin(fa) * 1.1, 27.5 - rz * 3.2 + math.cos(fa) * 1.1
+    LAYOUT['mirror'] = {'center': [round(cx, 3), 1.9, round(cz, 3)], 'size': [W, H], 'facing': round(fa, 4), 'switch': [round(sx, 2), 0, round(sz, 2)]}
+    LAYOUT['interactables'].append({'type': 'mirror', 'point': [round(sx, 2), 0, round(sz, 2)], 'radius': 1.8, 'label': 'Specchio on/off'})
 
 
 # ------------------------------------------------------------------ panchine
@@ -580,12 +539,10 @@ def add_bench(gx, gz, facing, name):
 
 def build_benches():
     for i in range(6):
-        if i == 3:
-            continue
-        a = 2 * PI * i / 6
-        add_bench(math.sin(a) * 8.8, math.cos(a) * 8.8, a, f'Bench_{i}')
-    for x in (-2.3, 2.3):
-        add_bench(x, -14, PI, 'Bench_mirror')
+        a = math.radians(30 + 60 * i)
+        for s in (-1, 1):
+            aa = a + s * 0.16
+            add_bench(math.sin(aa) * 18.6, math.cos(aa) * 18.6, aa + PI, f'Bench_{i}_{s}')
 
 
 # ------------------------------------------------------------------ alberi
@@ -634,13 +591,13 @@ def build_trees():
     placed = []
     trees = []
     r = random.Random(42)
-    park = portal_angle(1) + PI / 6
+    park = math.radians(90)
     tries = 0
     while len(placed) < 34 and tries < 900:
         tries += 1
         a = r.random() * 2 * PI
-        d = PLAZA_R + 3 + r.random() * (ISLAND_R - PLAZA_R - 6)
-        ok = all(abs(math.atan2(math.sin(a - portal_angle(i)), math.cos(a - portal_angle(i)))) * d > 5.5 for i in range(6))
+        d = 50 + r.random() * 12
+        ok = all(abs(math.atan2(math.sin(a - math.radians(60 * i)), math.cos(a - math.radians(60 * i)))) * d > 7 for i in range(6))
         ok = ok and abs(math.atan2(math.sin(a - park), math.cos(a - park))) > 0.38
         gx, gz = math.sin(a) * d, math.cos(a) * d
         ok = ok and all(math.hypot(p[0] - gx, p[1] - gz) > 4.6 for p in placed)
@@ -656,19 +613,6 @@ def build_trees():
         collider(gx, gz, 0.32 * sc)
     for t in trees:
         static(t)
-    # cespugli lungo il bordo della piazza
-    bushes = []
-    for k in range(40):
-        a = 2 * PI * k / 40 + 0.03
-        if any(abs(math.atan2(math.sin(a - portal_angle(i)), math.cos(a - portal_angle(i)))) < 0.12 for i in range(6)):
-            continue
-        if abs(math.atan2(math.sin(a - PI), math.cos(a - PI))) < 0.15 or abs(a) < 0.12 or abs(a - 2 * PI) < 0.12:
-            continue
-        b = blob('bush', 0.55 + r.random() * 0.25, MAT['Bush'], subdiv=2, rough=0.25, seed=k + 100, squash=0.7)
-        b.location = G(math.sin(a) * (PLAZA_R + 1.1), 0.25, math.cos(a) * (PLAZA_R + 1.1))
-        bushes.append(b)
-        collider(math.sin(a) * (PLAZA_R + 1.1), math.cos(a) * (PLAZA_R + 1.1), 0.55)
-    static(join(bushes, 'Bushes'))
 
 
 # ------------------------------------------------------------------ lanterne
@@ -710,14 +654,14 @@ def rock_island(name, radius, depth, seed, top_mat=MAT['Grass']):
 
 
 def build_parkour():
-    base = portal_angle(1) + PI / 6
+    base = math.radians(90)
     steps = 8
     last = None
     parts = []
     for k in range(steps):
         t = k / (steps - 1)
-        a = base - 0.25 + t * 0.5
-        d = PLAZA_R + 4 + t * 14
+        a = base - 0.14 + t * 0.28
+        d = 50 + t * 16
         gx, gz = math.sin(a) * d, math.cos(a) * d
         y = 0.75 + k * 0.75
         r = 3.2 if k == steps - 1 else 1.25
@@ -740,10 +684,10 @@ def build_far_islands():
     r = random.Random(21)
     for k in range(10):
         a = r.random() * 2 * PI
-        d = 360 + r.random() * 120
-        s = 3 + r.random() * 7
-        isle = rock_island(f'FarIsland_{k}', s, s * 1.9, k + 60)
-        place(isle, math.sin(a) * d, -4 + r.random() * 40, math.cos(a) * d, r.random() * 6)
+        d = 120 + r.random() * 200
+        s = 4 + r.random() * 9
+        isle = rock_island(f'FarIsland_{k}', s, s * 2.2, k + 60)
+        place(isle, math.sin(a) * d, 45 + r.random() * 45, math.cos(a) * d, r.random() * 6)
         if s > 5:
             t = tree(['sakura', 'round', 'pine'][k % 3], s * 0.14 + 0.7, 200 + k)
             t.parent = isle
@@ -760,7 +704,7 @@ def build_welcome():
         parts.append(box('leg', (0.16, 0.16, 1.0), (s * 1.45, 0.06, 0.5), MAT['Stone'], bevel=0.03))
     frame = static(join(parts, 'WelcomeFrame'))
     facing = PI - 0.55
-    place(frame, -6.5, 0, 17.5, facing)
+    place(frame, -9.0, 0, 24.0, facing)
     bm = bmesh.new()
     uvl = bm.loops.layers.uv.new('UVMap')
     vs = [bm.verts.new(p) for p in ((-1.7, 0, 0.94), (1.7, 0, 0.94), (1.7, 0, 3.06), (-1.7, 0, 3.06))]
@@ -769,10 +713,10 @@ def build_welcome():
         loop[uvl].uv = uv
     board = mesh_object('Board_welcome', bm, MAT['Board'], smooth=False)
     board.data.transform(Matrix.Translation((0, -0.01, 0)))
-    place(board, -6.5, 0, 17.5, facing)
+    place(board, -9.0, 0, 24.0, facing)
     rot = Matrix.Rotation(facing, 3, 'Z')
     for s in (-1, 1):
-        p = G(-6.5, 0, 17.5) + rot @ Vector((s * 1.45, 0.06, 0))
+        p = G(-9.0, 0, 24.0) + rot @ Vector((s * 1.45, 0.06, 0))
         collider(p.x, -p.y, 0.2)
 
 
@@ -784,7 +728,6 @@ for i in range(6):
 build_mirror()
 build_benches()
 build_trees()
-build_lanterns()
 build_parkour()
 build_far_islands()
 build_welcome()
@@ -792,9 +735,11 @@ build_welcome()
 # ------------------------------------------------------------------ mondo grande
 from world_districts import World, BOUNDS, PLAZA_FLAT, WORLD_R  # noqa: E402
 import world_extra  # noqa: E402
+import world_atrium  # noqa: E402
 
 world_extra.install(World)
 world_extra.install_lobby(World)
+world_atrium.install_atrium(World)
 
 world = World({
     'G': G, 'place': place, 'box': box, 'cylinder': cylinder, 'lathe': lathe, 'blob': blob, 'disc': disc,
@@ -813,10 +758,10 @@ world.build_medieval()
 world.build_east()
 world.build_snow()
 world.build_plaza_extras()
-world.build_lobby()
+world.build_atrium()
 world.npc_spots_misc()
 world.scatter_countryside()
-world.pad('Piazza Centrale', 7.5, 19.0, y=0.0, facing=PI)
+world.pad('Piazza Centrale', 8.5, 25.0, y=0.0, facing=PI)
 world.scatter_coins()
 SOURCES = world.build_instance_sources()
 world.export_instances()
@@ -893,7 +838,7 @@ for o in bpy.context.scene.objects:
         total += sum(len(p.vertices) - 2 for p in o.data.polygons)
 print('TRIANGOLI TOTALI', total)
 
-LAYOUT['spawn'] = [0, 0, 15]
+LAYOUT['spawn'] = [0, 0, 24]
 LAYOUT['bounds'] = BOUNDS
 LAYOUT['plazaRadius'] = PLAZA_R
 LAYOUT['islandRadius'] = PLAZA_FLAT

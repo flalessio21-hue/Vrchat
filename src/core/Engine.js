@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 
 /** Correzione colore "cinematografica": ombre fredde, luci calde, contrasto e vignetta. */
 const GradeShader = {
@@ -62,6 +63,14 @@ export class Engine {
     });
     this.composer = new EffectComposer(this.renderer, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+    // occlusione ambientale in tempo reale (solo computer): ombre di contatto negli angoli e sotto gli oggetti
+    if (!isMobile) {
+      this.ao = new GTAOPass(this.scene, this.camera, window.innerWidth, window.innerHeight);
+      this.ao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 12 });
+      this.ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+      this.ao.blendIntensity = 0.85;
+      this.composer.addPass(this.ao);
+    }
     const res = new THREE.Vector2(window.innerWidth, window.innerHeight).multiplyScalar(isMobile ? 0.5 : 1);
     this.bloom = new UnrealBloomPass(res, 0.85, 0.55, 0.78);
     this.composer.addPass(this.bloom);

@@ -4,6 +4,7 @@ import { WORLDS } from './worlds.js';
 import { makeTextSprite, makePanelTexture } from './textSprite.js';
 import { loadGLTF, loadJSON } from '../core/assets.js';
 import { rng } from '../core/toon.js';
+import { applyDetail, DETAIL_BY_MATERIAL } from '../core/detail.js';
 
 const SUN_DIR = new THREE.Vector3(-0.62, 0.32, -0.72).normalize();
 
@@ -82,6 +83,7 @@ export class Hub {
     this.buildCampfire();
     this.buildSnowfall();
     this.buildBalloons();
+    this.buildDust();
     this.buildFloorReflection();
 
     this.buildMirror();
@@ -95,7 +97,8 @@ export class Hub {
     const sun = new THREE.DirectionalLight(0xffb48a, 1.9);
     sun.position.copy(SUN_DIR).multiplyScalar(60);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    const hi = !matchMedia('(pointer: coarse)').matches;
+    sun.shadow.mapSize.set(hi ? 4096 : 2048, hi ? 4096 : 2048);
     const s = 28;
     Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 160 });
     sun.shadow.bias = -0.0003;
@@ -266,6 +269,9 @@ export class Hub {
       if (!o.isMesh) return;
       const name = o.name;
       const mat = o.material;
+      // dettaglio di superficie procedurale (rilievo, ruvidità, pozzanghere, giunture)
+      const det = DETAIL_BY_MATERIAL[mat.name];
+      if (det) applyDetail(mat, det[0], det[1]);
       if (o.geometry.attributes.color) mat.vertexColors = true;
       if (mat.name.startsWith('Glow') || mat.name === 'Lantern' || mat.name === 'Crystal' || mat.name === 'GemGreen') {
         mat.toneMapped = true;
@@ -1004,6 +1010,58 @@ export class Hub {
         flame.scale.setScalar(0.8 + Math.random() * 0.4);
       });
     });
+  }
+
+  /** Pulviscolo luminoso sospeso nell'atrio (riprende le luci calde e fredde). */
+  buildDust() {
+    const N = matchMedia('(pointer: coarse)').matches ? 300 : 900;
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const seed = new Float32Array(N);
+    const r = rng(1234);
+    const warm = new THREE.Color(0xffc890);
+    const cool = new THREE.Color(0x9fe6ff);
+    for (let i = 0; i < N; i++) {
+      const a = r() * Math.PI * 2;
+      const d = Math.sqrt(r()) * 36;
+      pos.set([Math.sin(a) * d, 0.3 + r() * 20, Math.cos(a) * d], i * 3);
+      const c = r() < 0.6 ? warm : cool;
+      col.set([c.r, c.g, c.b], i * 3);
+      seed[i] = r() * 100;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uTime: { value: 0 }, uScale: { value: window.innerHeight / 2 } },
+      vertexShader: /* glsl */ `
+        attribute vec3 color; attribute float seed; varying vec3 vC; varying float vA;
+        uniform float uTime, uScale;
+        void main(){
+          vec3 p = position;
+          p.x += sin(uTime * 0.11 + seed) * 1.5;
+          p.z += cos(uTime * 0.09 + seed * 1.7) * 1.5;
+          p.y += sin(uTime * 0.2 + seed * 0.5) * 0.8;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = 0.05 * uScale / -mv.z;
+          vC = color; vA = (0.35 + 0.65 * sin(uTime * 1.3 + seed * 3.0)) * smoothstep(40.0, 8.0, -mv.z);
+        }`,
+      fragmentShader: /* glsl */ `
+        varying vec3 vC; varying float vA;
+        void main(){
+          float a = smoothstep(0.5, 0.0, length(gl_PointCoord - 0.5));
+          gl_FragColor = vec4(vC * 1.4, a * vA * 0.7);
+        }`,
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    this.group.add(pts);
+    this.animated.push((dt, t) => (mat.uniforms.uTime.value = t));
   }
 
   /** Ologramma della pedana: anelli concentrici che pulsano e ruotano. */

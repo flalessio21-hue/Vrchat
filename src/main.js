@@ -10,9 +10,8 @@ import { InputManager } from './input/InputManager.js';
 import { AvatarEditor } from './ui/AvatarEditor.js';
 import { HUD } from './ui/HUD.js';
 import { ShopUI } from './ui/ShopUI.js';
-import { Economy } from './game/Economy.js';
+import { Economy, DISCOVERY_REWARD, DAILY_REWARD } from './game/Economy.js';
 import { Items, Gear } from './game/Gear.js';
-import { Coins } from './game/Coins.js';
 import { NPCs } from './game/NPCs.js';
 import { SHOP_INFO, item } from './game/catalog.js';
 
@@ -59,12 +58,18 @@ hud.setName(avatarConfig.name);
 // --- economia, negozi, veicoli, animali, monete, passanti
 const economy = new Economy();
 const gear = new Gear(engine.scene, player, hub);
-const coins = new Coins(engine.scene, hub.layout.coins || []);
 const npcs = new NPCs(engine.scene, hub);
 const coinsEl = document.getElementById('hud-coins');
 const rideBtn = document.getElementById('btn-ride');
+let lastCoins = economy.coins;
 function refreshCoins() {
   coinsEl.textContent = `🪙 ${economy.coins}`;
+  if (economy.coins > lastCoins) {
+    coinsEl.classList.remove('bump');
+    void coinsEl.offsetWidth;
+    coinsEl.classList.add('bump');
+  }
+  lastCoins = economy.coins;
 }
 function applyEquip(type, id) {
   if (type === 'vehicle') {
@@ -165,9 +170,8 @@ function interact(it) {
       return;
     }
     if (it.data === 'social') {
-      const n = npcs.list.filter((x) => x.av.root.visible).length;
       avatar.playEmote('wave');
-      hud.toast(`👥 Ci sono <b>${n}</b> persone qui vicino. Saluta con 1, balla con 2!`, 3);
+      hud.toast('👥 Presto potrai incontrare altri giocatori qui in piazza.<br><small>Intanto saluta con 1 e balla con 2!</small>', 3.5);
       return;
     }
   }
@@ -196,6 +200,7 @@ function setWorldPrompt(it) {
 }
 
 let gemFound = false;
+let started = false;
 
 engine.onUpdate((dt, t) => {
   const state = input.poll();
@@ -208,13 +213,6 @@ engine.onUpdate((dt, t) => {
   player.update(dt, state);
   gear.update(dt, t);
   npcs.update(dt, t, player.position);
-  const got = coins.update(dt, t, player);
-  if (got) {
-    economy.add(got);
-    coinsEl.classList.remove('bump');
-    void coinsEl.offsetWidth;
-    coinsEl.classList.add('bump');
-  }
   for (const m of showcase) m.rotation.y += dt * 0.8;
   hub.update(dt, t, player.position, engine.isXR);
   hub.followShadow(player.position);
@@ -249,7 +247,11 @@ engine.onUpdate((dt, t) => {
   }
 
   hud.drawMinimap(player.position, player.facing);
-  hud.setZone(hub.zoneAt(player.position.x, player.position.z));
+  const zone = hub.zoneAt(player.position.x, player.position.z);
+  hud.setZone(zone);
+  if (started && zone !== 'Campagna di Oasis' && economy.discover(zone)) {
+    hud.toast(`🧭 Nuovo luogo scoperto: <b>${zone}</b><br><span style="color:#ffe08a">+${DISCOVERY_REWARD} 🪙</span>`, 3);
+  }
 });
 
 hud.onEmote((id) => player.emote(id));
@@ -263,6 +265,10 @@ document.getElementById('btn-start').addEventListener('click', () => {
     editor.open();
   } else {
     hud.toast('Benvenuto in <b>Oasis</b>!', 2.5);
+  }
+  started = true;
+  if (economy.claimDaily()) {
+    setTimeout(() => hud.toast(`🎁 Bonus giornaliero: <span style="color:#ffe08a">+${DAILY_REWARD} 🪙</span><br><small>Scopri i quartieri di Oasis per guadagnare altre monete</small>`, 4), 2800);
   }
 });
 document.getElementById('btn-avatar').addEventListener('click', () => editor.toggle());
@@ -291,4 +297,4 @@ Engine.isVRSupported().then((ok) => {
 engine.start();
 
 // Debug in console
-window.oasis = { engine, hub, player, avatar, economy, gear, npcs, coins, shopUI };
+window.oasis = { engine, hub, player, avatar, economy, gear, npcs, shopUI };

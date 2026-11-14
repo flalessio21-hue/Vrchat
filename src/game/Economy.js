@@ -1,7 +1,9 @@
 import { load, save } from '../core/storage.js';
 import { item } from './catalog.js';
 
-const START = { coins: 200, owned: [], vehicle: null, pet: null, effect: null };
+const START = { coins: 300, owned: [], vehicle: null, pet: null, effect: null, discovered: [], lastDaily: '' };
+export const DISCOVERY_REWARD = 120;
+export const DAILY_REWARD = 150;
 
 /**
  * Monete e oggetti posseduti, salvati in locale. In futuro questo stato potrà
@@ -20,6 +22,25 @@ export class Economy {
   commit() {
     save('economy', this.state);
     for (const fn of this.listeners) fn(this.state);
+  }
+
+  /** Prima visita di un quartiere: ricompensa. @returns {boolean} */
+  discover(zone) {
+    if (!zone || this.state.discovered.includes(zone)) return false;
+    this.state.discovered.push(zone);
+    this.state.coins += DISCOVERY_REWARD;
+    this.commit();
+    return true;
+  }
+
+  /** Bonus una volta al giorno. @returns {boolean} */
+  claimDaily() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (this.state.lastDaily === today) return false;
+    this.state.lastDaily = today;
+    this.state.coins += DAILY_REWARD;
+    this.commit();
+    return true;
   }
 
   get coins() {

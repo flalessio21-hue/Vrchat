@@ -4,6 +4,7 @@ import { DEFAULT_AVATAR, sanitizeAvatar } from './avatarConfig.js';
 import { drawFace, shade } from './avatarParts.js';
 import { toonGradient, outlineMaterial } from '../core/toon.js';
 import { loadGLTF } from '../core/assets.js';
+import { applyDetail } from '../core/detail.js';
 import { makeNameTag } from '../world/textSprite.js';
 
 const URL = 'models/avatar.glb';
@@ -93,6 +94,12 @@ export class Avatar {
       Visor: new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, shininess: 120, emissiveIntensity: 0.6, depthWrite: false }),
       Accent: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, emissiveIntensity: 2.2 }),
     };
+
+    // trama del tessuto sui vestiti (solo per il giocatore: i commessi restano leggeri)
+    if (!npc) {
+      for (const k of ['Top', 'TopDark', 'Bottom', 'Shirt']) applyDetail(this.mats[k], 'fabric', { scale: 9, bump: 0.5, rough: 0.15, albedo: 0.1, groove: 0 });
+      applyDetail(this.mats.Shoes, 'fabric', { scale: 12, bump: 0.3, rough: 0.1, albedo: 0.06, groove: 0 });
+    }
 
     // viso: 3 texture (normale, occhi chiusi, felice)
     this.faceCanvases = [0, 1, 2].map(() => Object.assign(document.createElement('canvas'), { width: 512, height: 512 }));

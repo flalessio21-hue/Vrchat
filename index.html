@@ -62,16 +62,25 @@
       </div>
     </div>
 
-    <!-- Negozi e zaino -->
-    <div id="shop" class="hidden">
-      <div class="travel-card">
-        <div class="ed-head">
-          <h2 id="shop-title">Negozio</h2>
-          <div class="shop-head-right"><span id="shop-coins">🪙 0</span><button id="shop-close" class="btn small">Chiudi</button></div>
+    <!-- Inventario e negozi -->
+    <div id="shop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="shop-title">
+      <div class="inv-panel">
+        <header class="inv-head">
+          <div class="inv-titles">
+            <div id="inv-kicker" class="inv-kicker">Zaino</div>
+            <h2 id="shop-title">Inventario</h2>
+            <p id="inv-intro" class="inv-intro"></p>
+          </div>
+          <div class="inv-wallet" title="Le tue monete"><span class="inv-coin">🪙</span><b id="shop-coins">0</b></div>
+          <button id="shop-close" class="inv-x" type="button" aria-label="Chiudi">✕</button>
+        </header>
+        <div id="inv-slots" class="inv-slots"></div>
+        <div class="inv-body">
+          <nav id="inv-tabs" class="inv-tabs"></nav>
+          <div id="shop-list" class="inv-grid"></div>
+          <aside id="inv-detail" class="inv-detail"></aside>
         </div>
-        <p id="shop-intro" class="travel-hint"></p>
-        <div id="shop-list"></div>
-        <p id="shop-msg" class="travel-hint"></p>
+        <p id="shop-msg" class="inv-msg" role="status"></p>
       </div>
     </div>
 

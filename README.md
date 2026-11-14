@@ -19,11 +19,13 @@ Al momento contiene:
   - **Borgo Medievale**: castello con torri e mastio, case a graticcio, taverna, pozzo, mulino a vento, campo di grano
   - **Città d'Oriente**: porta monumentale, pagoda a cinque piani, case dai tetti curvi, laghetto con ponte ad arco, lanterne rosse, bambù, sala da tè
   - **Valle Innevata**: montagne, neve che cade, baita, igloo, pupazzi di neve, laghetto ghiacciato su cui si scivola
-- **Piazza viva**: passanti che camminano, salutano e ballano, 4 negozi con commessi e merce in vetrina,
+- **Piazza**: 4 negozi con commessi e merce in vetrina,
   fioriere, stendardi, mongolfiere nel cielo.
-- **Negozi e monete**: raccogli le monete 🪙 sparse per il mondo e compra veicoli (hoverboard, monopattino,
+- **Negozi e monete**: guadagni monete 🪙 scoprendo i quartieri (+120 la prima volta) e con il bonus
+  giornaliero (+150), e compri veicoli (hoverboard, monopattino,
   kart, nuvoletta), animali che ti seguono (gelatina, gattobot, gufetto, draghetto), effetti (aura, scia di stelle,
-  cuoricini, neve) e snack. Zaino (B) per usare ciò che possiedi, V per salire/scendere dal veicolo.
+  cuoricini, neve) e snack. **Inventario** (B): collezione con anteprime 3D, rarità, dettagli e slot
+  di veicolo / animale / effetto in uso. V per salire/scendere dal veicolo.
 - **Teletrasporti** (piattaforme luminose o pulsante Mappa / tasto M) e minimappa a radar;
   il nome del quartiere compare quando ci entri.
 - **Avatar** creato in Blender, con materiali realistici (di default in tuta spaziale): dita, polpacci, spalle modellati; capelli a strati

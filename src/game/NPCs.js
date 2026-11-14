@@ -22,14 +22,7 @@ export class NPCs {
     const r = rng(2024);
     let n = 0;
     const mobile = matchMedia('(pointer: coarse)').matches;
-    for (const [zone, spots] of Object.entries(world.layout.npcSpots || {})) {
-      const count = Math.max(1, Math.round((PER_ZONE[zone] ?? 2) * (mobile ? 0.6 : 1)));
-      for (let k = 0; k < count; k++) {
-        const name = NAMES[n++ % NAMES.length];
-        const spot = spots[Math.floor(r() * spots.length)];
-        this.spawn(name, spots, new THREE.Vector3(...spot), r);
-      }
-    }
+    // niente passanti che girano a caso: restano solo i commessi dei negozi
     // commessi dietro i banconi
     for (const [id, shop] of Object.entries(world.layout.shops || {})) {
       const [x, y, z, f] = shop.keeper;

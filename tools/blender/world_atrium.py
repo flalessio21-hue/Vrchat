@@ -373,6 +373,88 @@ def install_atrium(World):
                 self.add_instance(r.choice(['round', 'pine', 'round']), gx + math.cos(ta) * td, gz + math.sin(ta) * td,
                                   scale=r.uniform(0.9, 1.5), y=H(gx, gz) - 1 + h - 0.6)
 
+
+    # ------------------------------------------------------------ arredi
+    def vending(self, name, gx, gz, f, glow):
+        c, M = self.c, self.M
+        parts = [
+            c['box']('body', (1.1, 0.85, 2.0), (0, 0, 1.0), M['HullDark'], bevel=0.05, segs=2),
+            c['box']('front', (0.86, 0.06, 1.35), (-0.06, -0.44, 1.2), M['ShopGlowDim']),
+            c['box']('shelf1', (0.84, 0.08, 0.03), (-0.06, -0.46, 0.95), M['Hull']),
+            c['box']('shelf2', (0.84, 0.08, 0.03), (-0.06, -0.46, 1.3), M['Hull']),
+            c['box']('shelf3', (0.84, 0.08, 0.03), (-0.06, -0.46, 1.65), M['Hull']),
+            c['box']('keypad', (0.16, 0.06, 0.4), (0.44, -0.44, 1.25), M['Hull'], bevel=0.01, segs=1),
+            c['box']('slot', (0.6, 0.08, 0.18), (-0.06, -0.44, 0.32), M['Dark']),
+            c['box']('topglow', (1.12, 0.87, 0.06), (0, 0, 2.02), glow),
+            c['box']('sideglow', (0.04, 0.04, 1.8), (0.56, -0.44, 1.0), glow),
+        ]
+        o = c['static'](c['join'](parts, name))
+        c['place'](o, gx, 0, gz, f)
+        self.box_collider(gx, gz, 0.6, 0.48, f)
+
+    def totem(self, name, gx, gz, f):
+        c, M = self.c, self.M
+        parts = [
+            c['box']('base', (0.8, 0.5, 0.15), (0, 0, 0.075), M['Hull'], bevel=0.03, segs=1),
+            c['box']('post', (0.6, 0.25, 2.3), (0, 0, 1.3), M['HullDark'], bevel=0.04, segs=2),
+            c['box']('screen', (0.5, 0.05, 0.9), (0, -0.13, 1.6), M['ShopGlowDim']),
+            c['box']('glow', (0.62, 0.04, 0.05), (0, -0.13, 2.4), M['ArchGlow']),
+            c['box']('glow2', (0.04, 0.27, 2.1), (0.31, 0, 1.3), M['ArchGlow']),
+        ]
+        o = c['static'](c['join'](parts, name))
+        c['place'](o, gx, 0, gz, f)
+        c['collider'](gx, gz, 0.45)
+
+    def bin_(self, name, gx, gz):
+        c, M = self.c, self.M
+        parts = [
+            c['cylinder']('can', 0.28, 0.26, 0.9, M['HullDark'], segs=20),
+            c['cylinder']('ring', 0.295, 0.295, 0.06, M['Hull'], segs=20, center=(0, 0, 0.7)),
+            c['cylinder']('lid', 0.3, 0.22, 0.12, M['Hull'], segs=20, center=(0, 0, 0.9)),
+            c['cylinder']('glowring', 0.3, 0.3, 0.03, M['Lantern'], segs=20, center=(0, 0, 0.12), smooth=False),
+        ]
+        o = c['static'](c['join'](parts, name))
+        c['place'](o, gx, 0, gz, 0)
+        c['collider'](gx, gz, 0.35)
+
+    def potted_tree(self, name, gx, gz, seed):
+        c, M = self.c, self.M
+        pot = [c['lathe']('pot', [(0.6, 0), (0.75, 0.1), (0.8, 0.9), (0.72, 0.95), (0.7, 0.85)], M['HullDark'], segs=32),
+               c['lathe']('potglow', [(0.81, 0.6), (0.81, 0.68)], M['Lantern'], segs=32, smooth=False),
+               c['disc']('soil', 0, 0.7, 1, 24, M['Bark'], z=0.85)]
+        tree = c['tree']('round', 0.75, seed)
+        tree.location = (0, 0, 0.85)
+        o = c['static'](c['join'](pot + [tree], name))
+        c['place'](o, gx, 0, gz, seed)
+        c['collider'](gx, gz, 0.85)
+
+    def build_props(self):
+        k = 0
+        for g in GAPS:
+            if abs(g - PI) < 0.01:
+                continue  # il tunnel ha già i suoi archi
+            for s in (-1, 1):
+                a = g + s * math.radians(10.5)
+                gx, gz = 36.6 * math.sin(a), 36.6 * math.cos(a)
+                f = a + PI
+                self.vending(f'Vending_{k}', gx, gz, f, self.M['ArchGlow'] if k % 2 else self.M['Lantern'])
+                k += 1
+        for i, d in enumerate((0, 60, 120, 240, 300)):
+            a = math.radians(d)
+            self.totem(f'Totem_{i}', 25.0 * math.sin(a + 0.09), 25.0 * math.cos(a + 0.09), a + PI)
+        for i in range(6):
+            a = math.radians(30 + 60 * i)
+            self.bin_(f'Bin_{i}', 18.6 * math.sin(a), 18.6 * math.cos(a))
+            for s in (-1, 1):
+                aa = a + s * 0.205
+                self.potted_tree(f'Potted_{i}_{s}', 33.2 * math.sin(aa), 33.2 * math.cos(aa), 700 + i * 2 + (s > 0))
+
+    World.vending = vending
+    World.totem = totem
+    World.bin_ = bin_
+    World.potted_tree = potted_tree
+    World.build_props = build_props
+
     World.arc_panel = arc_panel
     World.arc_slab = arc_slab
     World.arc_tube = arc_tube
@@ -394,6 +476,7 @@ def install_atrium(World):
         self.build_tunnel()
         self.build_cliffs()
         self.build_waterfall()
+        self.build_props()
         sp = self.L.setdefault('npcSpots', {})
         sp['plaza'] = [[round(r * math.sin(math.radians(d)), 2), 0.0, round(r * math.cos(math.radians(d)), 2)]
                        for r in (17.0, 21.0, 26.0, 31.0) for d in range(10, 360, 40)]

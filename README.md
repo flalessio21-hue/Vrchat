@@ -41,6 +41,7 @@ Tutta la grafica 3D è generata **da zero con script Blender** (nessun asset sca
 | Script | Output | Contenuto |
 |---|---|---|
 | `tools/blender/avatar.py` | `public/models/avatar.glb` | avatar con scheletro (armatura), corpo modellato con Skin + Subdivision, capelli a ciocche da curve, 6 tagli, 3 sopra, 3 sotto, 6 accessori, scarpe; 9 animazioni (idle, walk, run, jump, wave, dance, cheer, sit, floor) |
+| `tools/textures/generate.py` | `public/textures/*.jpg` | materiali realistici generati (colore, normali, ruvidità): pietra lucida, metallo a pannelli, cemento, roccia, terreno, legno, corteccia, muratura, intonaco, tessuto, fogliame |
 | `tools/blender/items.py` | `public/models/items.glb` | veicoli, animali da compagnia e moneta dei negozi |
 | `tools/blender/hub.py` + `world_districts.py` + `world_extra.py` | `public/models/hub.glb` + `hub.json` | terreno con colline e lago, piazza, quartieri (città, lago, foresta, collina, palco, prato), alberi/rocce/fiori come istanze; **occlusione ambientale cotta con Cycles** nei colori dei vertici; layout di gioco (mappa delle altezze, collisioni, piattaforme, sedute, portali, teletrasporti, zone) |
 

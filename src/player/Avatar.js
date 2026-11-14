@@ -97,8 +97,9 @@ export class Avatar {
 
     // trama del tessuto sui vestiti (solo per il giocatore: i commessi restano leggeri)
     if (!npc) {
-      for (const k of ['Top', 'TopDark', 'Bottom', 'Shirt']) applyDetail(this.mats[k], 'fabric', { scale: 9, bump: 0.5, rough: 0.15, albedo: 0.1, groove: 0 });
-      applyDetail(this.mats.Shoes, 'fabric', { scale: 12, bump: 0.3, rough: 0.1, albedo: 0.06, groove: 0 });
+      for (const k of ['Top', 'TopDark', 'Bottom', 'Shirt']) applyDetail(this.mats[k], 'fabric', { scale: 5, normal: 0.8, albedo: 0.6, rough: 0.7, local: true });
+      applyDetail(this.mats.Shoes, 'fabric', { scale: 7, normal: 0.6, albedo: 0.4, rough: 0.5, local: true });
+      applyDetail(this.mats.Dark, 'metal_panels', { scale: 3, normal: 0.4, albedo: 0.5, rough: 0.5, local: true });
     }
 
     // viso: 3 texture (normale, occhi chiusi, felice)

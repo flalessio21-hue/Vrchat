@@ -220,7 +220,7 @@ export class Hub {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -2;
     envScene.add(ground);
-    this.scene.environment = pmrem.fromScene(envScene, 0.04).texture;
+    this.scene.environment = this.skyEnv = pmrem.fromScene(envScene, 0.04).texture;
     this.scene.environmentIntensity = 0.85;
     pmrem.dispose();
   }
@@ -286,6 +286,7 @@ export class Hub {
       if (mat.name === 'LobbyFloor') {
         mat.roughness = 0.62;
         mat.metalness = 0.0;
+        mat.envMapIntensity = 0.45; // i riflessi nitidi li fa lo specchio del pavimento
       }
       if (mat.name === 'Hull' || mat.name === 'HullDark') {
         mat.roughness = 0.55;
@@ -1012,6 +1013,45 @@ export class Hub {
     });
   }
 
+  /**
+   * Sonda di riflessione: fotografa l'atrio in tutte le direzioni e lo usa come
+   * ambiente per riflessi e luce indiretta quando il giocatore è dentro l'atrio
+   * (il metallo e il pavimento riflettono le vetrine e i neon veri, non il cielo).
+   */
+  captureProbe(hide = []) {
+    const renderer = this.renderer;
+    const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+    const cam = new THREE.CubeCamera(0.5, 400, rt);
+    cam.position.set(0, 3.5, 0);
+    const vis = hide.map((o) => o.visible);
+    hide.forEach((o) => (o.visible = false));
+    const mirror = this.mirror.visible;
+    const refl = this.floorReflector?.visible;
+    this.mirror.visible = false;
+    if (this.floorReflector) this.floorReflector.visible = false;
+    const env = this.scene.environment;
+    this.scene.environment = this.skyEnv;
+    cam.update(renderer, this.scene);
+    this.scene.environment = env;
+    hide.forEach((o, i) => (o.visible = vis[i]));
+    this.mirror.visible = mirror;
+    if (this.floorReflector) this.floorReflector.visible = refl;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    this.atriumEnv = pmrem.fromCubemap(rt.texture).texture;
+    pmrem.dispose();
+    rt.dispose();
+  }
+
+  updateEnvironment(p) {
+    if (!this.atriumEnv) return;
+    const inside = Math.hypot(p.x, p.z) < 47;
+    const want = inside ? this.atriumEnv : this.skyEnv;
+    if (this.scene.environment !== want) {
+      this.scene.environment = want;
+      this.scene.environmentIntensity = inside ? 0.45 : 0.85;
+    }
+  }
+
   /** Pulviscolo luminoso sospeso nell'atrio (riprende le luci calde e fredde). */
   buildDust() {
     const N = matchMedia('(pointer: coarse)').matches ? 300 : 900;
@@ -1355,6 +1395,7 @@ export class Hub {
     for (const fn of this.animated) fn(dt, time);
     if (this.floorReflector) this.floorReflector.visible = !isXR && Math.hypot(playerPos.x, playerPos.z) < 45;
     this.updateSnow(dt, time, playerPos);
+    this.updateEnvironment(playerPos);
     this.grassUniforms?.uCenter.value.set(playerPos.x, playerPos.z);
     const near = playerPos.distanceTo(this.mirror.position) < 22;
     this.mirror.visible = this.mirrorOn && near && !isXR;

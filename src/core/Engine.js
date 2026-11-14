@@ -72,7 +72,7 @@ export class Engine {
       this.composer.addPass(this.ao);
     }
     const res = new THREE.Vector2(window.innerWidth, window.innerHeight).multiplyScalar(isMobile ? 0.5 : 1);
-    this.bloom = new UnrealBloomPass(res, 0.85, 0.55, 0.78);
+    this.bloom = new UnrealBloomPass(res, 0.7, 0.5, 1.05);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.composer.addPass(new ShaderPass(GradeShader));
